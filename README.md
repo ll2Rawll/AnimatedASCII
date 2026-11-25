@@ -2,7 +2,7 @@
 
 # AnimatedASCII
 
-**Fourteen live wallpapers for Windows, drawn in ASCII.**
+**Fourteen seamless live wallpapers for Windows, drawn in ASCII.**
 
 <img src="docs/kinetic-ascii.webp" alt="Animated preview of Kaleido Drive, Bloom Breaker, and Ink Fold" width="672">
 
@@ -64,6 +64,6 @@ npm install
 npm start
 ```
 
-Choose a scene and click **Set as wallpaper**. Keep the app open to animate your primary monitor. Use **Full screen** to watch the scene on its own.
+Choose a scene and click **Set as wallpaper**. Keep the app open to animate your primary monitor. Use **Full screen** to watch the scene on its own. Every scene repeats without a cut.
 
 Run `npm run build` on Windows to create an installer in `dist/`.

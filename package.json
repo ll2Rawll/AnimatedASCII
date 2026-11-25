@@ -1,6 +1,6 @@
 {
   "name": "winter-ascii",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "description": "Live Christmas, neon, Y2K, and kinetic wallpapers drawn in ASCII",
   "main": "main.js",
   "scripts": {

@@ -177,7 +177,10 @@ $('#apply').onclick = async () => {
 function tick(timestamp) {
     const image = images[selected];
     if ((!image || (image.complete && image.naturalWidth)) && (!paused || dirty)) {
-        if (!paused && lastTime !== null) sceneTime += Math.min(.05, (timestamp - lastTime) / 1000);
+        if (!paused && lastTime !== null) {
+            const delta = Math.min(.05, (timestamp - lastTime) / 1000);
+            sceneTime = (sceneTime + delta) % sceneLoopSeconds[selected];
+        }
         const rect = canvas.getBoundingClientRect();
         const scale = Math.min(devicePixelRatio || 1, 2, 2560 / rect.width, 1440 / rect.height);
         const width = Math.max(1, Math.round(rect.width * scale));

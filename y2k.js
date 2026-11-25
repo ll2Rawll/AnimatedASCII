@@ -39,7 +39,7 @@ vec3 silver(vec3 n, vec3 ray, vec3 p, float t) {
     float softbox = exp(-square((height+.47)*4.6)-square((ref.x-.29)*2.1));
     float backlight = exp(-square((height-.55)*5.)-square((ref.x+.48)*3.6));
     float horizon = filament(height+.10+.07*ref.x,.074);
-    float pearlescence = .5+.5*cos(4.8*p.y+3.6*p.x+t*.93+5.1*height);
+    float pearlescence = .5+.5*cos(4.8*p.y+3.6*p.x+loopAngle(t,.93)+5.1*height);
     reflected += mix(vec3(.23,.49,.93),vec3(.96,.30,.68),pearlescence)
                 * (.18*.65 + .49*backlight);
     float hotRim = filament(height-.31 + sin(ref.x*4.)*.085,.029);
@@ -49,7 +49,7 @@ vec3 silver(vec3 n, vec3 ray, vec3 p, float t) {
     return reflected + rim*vec3(.53,.64,1.)*.44;
 }
 vec3 chromeBloom(vec2 p, float t) {
-    vec2 q = p-vec2(.035*sin(t*.42),.03*cos(t*.73));
+    vec2 q = p-vec2(.035*sin(loopAngle(t,.42)),.03*cos(loopAngle(t,.73)));
     float r = length(q);
     vec3 color = mix(vec3(.046,.020,.098),vec3(.26,.062,.19),exp(-r*r*1.12));
     color += vec3(.28,.09,.24)*exp(-dot(q-vec2(-.56,.13),q-vec2(-.56,.13))*2.9);
@@ -57,23 +57,23 @@ vec3 chromeBloom(vec2 p, float t) {
     color += vec3(.23,.11,.26)*printed*.14;
 
     // The same orbit runs in front of the sculpture on the near half and behind it on the far half.
-    vec2 track = rotate(.33+.08*sin(t*.46))*q;
+    vec2 track = rotate(.33+.08*sin(loopAngle(t,.46)))*q;
     vec2 ellipse = track*vec2(1.,2.6);
     float a = atan(ellipse.y,ellipse.x);
     float ring = length(ellipse);
     float nearSide = 1.-smoothstep(-.07,.02,track.y);
-    float ringFlash = pow(.5+.5*cos(a-t*1.85),37.);
+    float ringFlash = pow(.5+.5*cos(a-loopAngle(t,1.85)),37.);
     color += vec3(.96,.52,.84)*.44*ringFlash*filament(ring-.97,.037);
-    float speedDot = pow(.5+.5*cos(2.*a-t*2.1),18.);
+    float speedDot = pow(.5+.5*cos(2.*a-loopAngle(t,2.1)),18.);
     float line = filament(ring-.97,.010) + .38*filament(ring-1.08,.009);
-    float chain = filament(ring-1.08,.016)*pow(.5+.5*cos(a*45.-t*3.1),7.);
+    float chain = filament(ring-1.08,.016)*pow(.5+.5*cos(a*45.-loopAngle(t,3.1)),7.);
     vec3 orbit = vec3(.82,.37,.69)*line*(.22+.75*speedDot)
                + vec3(.49,.68,1.)*.38*chain;
     color += orbit;
     for (int i=0; i<8; i++) {
         float seed = float(i);
-        float angle = seed*.7854+t*(.48+.025*seed);
-        vec2 bead = rotate(-.33-.08*sin(t*.46))
+        float angle = seed*.7854+loopAngle(t,.48+.025*seed);
+        vec2 bead = rotate(-.33-.08*sin(loopAngle(t,.46)))
                     * vec2(1.09*cos(angle),.46*sin(angle));
         vec2 fromBead = q-bead;
         float size = .018+.021*pow(.5+.5*sin(angle),2.);
@@ -84,14 +84,14 @@ vec3 chromeBloom(vec2 p, float t) {
             color += silver(normalize(vec3(fromBead/size,normal)), vec3(0,0,-1),
                             vec3(bead,0.),t)*(.52+.20*sin(angle));
         }
-        color += crossFlare(fromBead,.055)*.33*pow(.5+.5*sin(t*1.6+seed*9.),9.)
+        color += crossFlare(fromBead,.055)*.33*pow(.5+.5*sin(loopAngle(t,1.6)+seed*9.),9.)
                  * vec3(.87,.65,1.);
     }
 
     if (r > .80) return color;
-    float roll = -t*.57-.17*sin(t*.61);
-    float pitch = .39*sin(t*.83)+.21;
-    float yaw = .48*sin(t*.64+.25);
+    float roll = -loopAngle(t,.57)-.17*sin(loopAngle(t,.61));
+    float pitch = .39*sin(loopAngle(t,.83))+.21;
+    float yaw = .48*sin(loopAngle(t,.64)+.25);
     vec3 ray = turn3(vec3(0,0,-1),pitch,yaw,roll);
     vec3 eye = turn3(vec3(q,1.2),pitch,yaw,roll);
     float d = 0., closest = 1.;
@@ -120,15 +120,16 @@ vec3 dialScreen(vec2 p, float t) {
     vec3 color = vec3(.008,.075,.123);
     float mesh = max(gridLine(p.x*13.,.039),gridLine(p.y*13.,.043));
     color += vec3(.045,.32,.40)*mesh*.36;
-    float wave = sin(p.x*19.+t*4.6)*sin(p.x*7.4-t*3.2) + .3*sin(p.x*52.-t*5.8);
-    float drift = .099*wave+.042*cos(t*1.7)-.012;
+    float wave = sin(p.x*19.+loopAngle(t,4.6))*sin(p.x*7.4-loopAngle(t,3.2)) + .3*sin(p.x*52.-loopAngle(t,5.8));
+    float drift = .099*wave+.042*cos(loopAngle(t,1.7))-.012;
     float trace = filament(p.y-drift,.011);
-    float echo = filament(p.y-drift-.035*sin(t*2.+7.*p.x),.013);
+    float echo = filament(p.y-drift-.035*sin(loopAngle(t,2.)+7.*p.x),.013);
     color += vec3(.13,.74,1.0)*echo*.48 + vec3(.38,1.0,.79)*trace*1.26;
-    float scanner = .37-fract(t*.40)*.72;
-    color += vec3(.22,.71,1.)*filament(p.x-scanner,.014)*.58;
+    float scanPhase = fract(loopTurns(t,.40));
+    float scanner = .37-scanPhase*.72;
+    color += vec3(.22,.71,1.)*filament(p.x-scanner,.014)*.58*smoothstep(0.,.10,scanPhase)*(1.-smoothstep(.88,1.,scanPhase));
     float ft = floor((p.x+.39)*27.);
-    float readout = .022+.039*pow(.5+.5*sin(t*6.+ft*2.374),2.);
+    float readout = .022+.039*pow(.5+.5*sin(loopAngle(t,6.)+ft*2.374),2.);
     float meter = step(-.187,p.y)*step(p.y,-.187+readout)*step(.25,fract((p.x+.39)*27.));
     color += vec3(.12,.77,.87)*meter*.61;
     float header = boxMask(p-vec2(-.204,.157),vec2(.12,.015),.005)
@@ -137,21 +138,21 @@ vec3 dialScreen(vec2 p, float t) {
     return color * (.83+.17*cos(p.y*245.));
 }
 vec3 dialUp(vec2 p, float t) {
-    vec2 q = p-vec2(.047*sin(t*.61),.063*cos(t*.90));
+    vec2 q = p-vec2(.047*sin(loopAngle(t,.61)),.063*cos(loopAngle(t,.90)));
     float r = length(q);
     vec3 color = vec3(.009,.064,.105) + vec3(.016,.30,.34)*exp(-r*r*2.0);
-    float sea = noise(rotate(-.24)*p*4.+vec2(-t*.19,t*.07));
-    float caustic = filament(sin(p.y*10.+p.x*8.+sin(6.*p.x-t)+t*.64),.15);
+    float sea = loopNoise(rotate(-.24)*p*4.,vec2(-.19,.07),t);
+    float caustic = filament(sin(p.y*10.+p.x*8.+sin(6.*p.x-loopAngle(t,1.))+loopAngle(t,.64)),.15);
     color += vec3(.009,.21,.23)*caustic*sea*.32;
     float dots = gridLine(p.x*12.,.08)*gridLine(p.y*12.,.08);
     color += vec3(.06,.19,.24)*dots*.61;
-    float cable = .29*sin(p.x*2.6-t*.94) + .46*sin(p.x*.83+.4);
-    float packet = pow(.5+.5*cos(p.x*11.-t*3.9),12.);
+    float cable = .29*sin(p.x*2.6-loopAngle(t,.94)) + .46*sin(p.x*.83+.4);
+    float packet = pow(.5+.5*cos(p.x*11.-loopAngle(t,3.9)),12.);
     color += vec3(.14,.55,.65)*filament(p.y-cable,.026)*(.14+.63*packet);
     color += vec3(.30,.78,.70)*filament(p.y-cable+.061,.013)*packet*.29;
     for (int i=0; i<14; i++) {
         float id = float(i);
-        float phase = fract(id*.618+t*(.081+.013*mod(id,3.)));
+        float phase = fract(id*.618+loopTurns(t,.081+.013*mod(id,3.)));
         vec2 center = vec2((hash(vec2(id,7.))-.5)*3.8 + .11*sin(phase*6.+id),phase*2.55-1.25);
         vec2 v = p-center;
         float radius = .026+.15*hash(vec2(2.2,id));
@@ -164,9 +165,9 @@ vec3 dialUp(vec2 p, float t) {
     }
 
     if (r > .97) return color;
-    float pitch = -.18+.16*sin(t*.71);
-    float yaw = .54*sin(t*.75+.8);
-    float roll = .12*cos(t*.83);
+    float pitch = -.18+.16*sin(loopAngle(t,.71));
+    float yaw = .54*sin(loopAngle(t,.75)+.8);
+    float roll = .12*cos(loopAngle(t,.83));
     vec3 eye = turn3(vec3(q,1.17),pitch,yaw,roll);
     vec3 ray = turn3(vec3(0,0,-1),pitch,yaw,roll);
     float distance = 0., closest = 1.;
@@ -204,14 +205,14 @@ vec3 dialUp(vec2 p, float t) {
             shell += vec3(.26,.62,.72)*filament(dial-.071,.012)*.75;
             shell = mix(shell, vec3(.035,.16,.23)+.24*reflection, 1.-smoothstep(.047,.058,dial));
             float keypad = step(.58,fract((controls.x+.33)*17.))*boxMask(controls-vec2(-.11,-.001),vec2(.20,.035),.013);
-            shell += keypad*vec3(.065,.48,.57)*(.53+.47*sin(t*5.+controls.x*43.));
+            shell += keypad*vec3(.065,.48,.57)*(.53+.47*sin(loopAngle(t,5.)+controls.x*43.));
             float lampId = floor((controls.x+.34)*17.);
             float lamp = gridLine((controls.x+.34)*17.,.10)
                        * filament(controls.y+.053,.012)
                        * step(abs(controls.x+.12),.155);
-            shell += lamp*vec3(.33,1.,.62)*(.25+.75*pow(.5+.5*sin(t*6.4-lampId*.8),3.));
+            shell += lamp*vec3(.33,1.,.62)*(.25+.75*pow(.5+.5*sin(loopAngle(t,6.4)-lampId*.8),3.));
             float power = length(xy-vec2(.285,-.514));
-            shell += vec3(.49,1.,.57)*filament(power,.036)*(.74+.26*sin(t*3.2));
+            shell += vec3(.49,1.,.57)*filament(power,.036)*(.74+.26*sin(loopAngle(t,3.2)));
             float screws = length(abs(xy)-vec2(.418,.505));
             shell = mix(shell,vec3(.12,.27,.32),1.-smoothstep(.018,.029,screws));
             return shell;
@@ -259,7 +260,7 @@ vec3 beveledSilver(vec2 p, float t) {
     float bevel = 1.-smoothstep(-.053,-.009,d);
     vec3 normal = normalize(vec3(flatNormal*96.*(1.-bevel),.21+.86*bevel));
     vec3 reflected = reflect(vec3(0.,0.,-1.),normal);
-    float sweep = reflected.y + .26*reflected.x + .52*p.y -.27*sin(t*1.45+p.x*1.62);
+    float sweep = reflected.y + .26*reflected.x + .52*p.y -.27*sin(loopAngle(t,1.45)+p.x*1.62);
     float studio = .16+.91*smoothstep(-.38,.13,sweep)-.89*smoothstep(.28,.46,sweep);
     float polish = filament(sweep-.19,.046)*.45+filament(sweep+.37,.033)*.35;
     float rim = filament(d+.009,.010);
@@ -336,7 +337,7 @@ vec3 chromeCross(vec2 p, float t) {
     vec3 color = vec3(.002,.002,.008) + vec3(.071,.033,.15)*exp(-r*r*4.)*(.36+.50*opening+.67*lock);
     color += vec3(.64,.21,1.)*filament(r-(.29+shockTime*3.7),.024)*shock*.64;
     color += vec3(.25,.71,1.)*filament(r-(.22+shockTime*3.0),.015)*shock*.40;
-    color += vec3(.25,.31,.72)*stars(q*.95,cycle*2./1.9)*(.16+.60*opening);
+    color += vec3(.25,.31,.72)*stars(q*.95,t)*(.16+.60*opening);
 
     // Two angled orbits carry polished fragments around the pendant.
     vec3 orbitGlow = vec3(0.);
@@ -406,9 +407,9 @@ float heartDistance(vec2 p) {
     return sqrt(min(dot(a,a),dot(b,b)))*sign(p.x-p.y);
 }
 vec3 candyHeart(vec2 p, float t) {
-    vec2 field = rotate(.13*sin(t*.51)-.20)*p*1.56;
-    field += vec2(.23*sin(field.y*2.41-t*.95),.20*sin(field.x*1.46+t*.87));
-    field += vec2(-t*.103,.14*cos(t*.51));
+    vec2 field = rotate(.13*sin(loopAngle(t,.51))-.20)*p*1.56;
+    field += vec2(.23*sin(field.y*2.41-loopAngle(t,.95)),.20*sin(field.x*1.46+loopAngle(t,.87)));
+    field += vec2(-.39*sin(loopAngle(t,.265)),.14*cos(loopAngle(t,.51)));
     vec2 cell = floor(field+.5);
     float dist = 2., tint = 0., samples = 0.;
     for (int y=-1;y<=1;y++) for (int x=-1;x<=1;x++) {
@@ -416,8 +417,8 @@ vec3 candyHeart(vec2 p, float t) {
         float key = hash(tag+vec2(.1,.3));
         vec2 shift = .20*vec2(sin(tag.y*8.3+1.),cos(tag.x*6.9+.5));
         vec2 q = field-tag-shift;
-        q = rotate(1.15*(key-.5)+.23*sin(t*.77+key*14.))*q;
-        float beat = pow(.5+.5*cos(t*1.88-tag.x*.92-tag.y*.68),2.1);
+        q = rotate(1.15*(key-.5)+.23*sin(loopAngle(t,.77)+key*14.))*q;
+        float beat = pow(.5+.5*cos(loopAngle(t,1.88)-tag.x*.92-tag.y*.68),2.1);
         float size = .56+.17*key+.102*beat;
         float shape = heartDistance(q/size+vec2(0.,.47))*size-.025;
         float blend = max(.066 - abs(dist-shape),0.)/.066;
@@ -426,7 +427,7 @@ vec3 candyHeart(vec2 p, float t) {
         tint += key*weight;
         samples += weight;
     }
-    float wave = pow(.5+.5*cos(t*1.84-length(p)*4.7),2.2);
+    float wave = pow(.5+.5*cos(loopAngle(t,1.84)-length(p)*4.7),2.2);
     vec3 rose = mix(vec3(.98,.42,.62),vec3(1.,.65,.70),tint/max(samples,.001));
     float center = 1.-smoothstep(-.054,.039,dist);
     float plush = .49+.51*(1.-smoothstep(-.19,.001,dist));
@@ -447,25 +448,25 @@ vec3 orbitStar(vec3 base, vec2 q, float size, vec3 pose, float t) {
     vec3 metal = beveledSilver(star,t);
     base = mix(base,metal,shade);
     base += filament(outline-.055,.020)*vec3(.63,.69,.82)*.13;
-    float pulse = pow(.5+.5*cos(t*1.97),15.);
+    float pulse = pow(.5+.5*cos(loopAngle(t,1.97)),15.);
     base += pulse*crossFlare(star-vec2(.003,.965),.21)*vec3(.89,.95,1.)*.85;
     return base;
 }
 vec3 silverFormation(vec2 p, float t) {
-    vec2 q = rotate(.12*sin(t*.7)-.25)*p;
-    float part = .5+.5*sin(t*.66);
+    vec2 q = rotate(.12*sin(loopAngle(t,.7))-.25)*p;
+    float part = .5+.5*sin(loopAngle(t,.66));
     vec2 c1 = vec2(-.078-.16*part,.181+.11*part);
     vec2 c2 = vec2(.30+.24*part,-.14-.07*part);
     vec2 c3 = vec2(-.235-.14*part,-.32-.21*part);
-    vec2 glide = vec2(.07*sin(t*.88),.033*cos(t*.59));
+    vec2 glide = vec2(.07*sin(loopAngle(t,.88)),.033*cos(loopAngle(t,.59)));
     vec3 color = vec3(.002,.002,.004)+vec3(.010,.013,.024)*exp(-length(q)*3.5);
-    color = orbitStar(color,q-c2+glide,.42,vec3(-.31,.5*sin(t*.75),-.31+.49*sin(t*.76)),t+1.7);
-    color = orbitStar(color,q-c3-glide,.34,vec3(.28,.45*sin(t*.67+.5),.22+.53*sin(t*.81)),t+3.4);
-    color = orbitStar(color,q-c1,.57,vec3(.30*cos(t*.61),.56*sin(t*.67),-.23+.41*sin(t*.78)),t);
+    color = orbitStar(color,q-c2+glide,.42,vec3(-.31,.5*sin(loopAngle(t,.75)),-.31+.49*sin(loopAngle(t,.76))),t+1.7);
+    color = orbitStar(color,q-c3-glide,.34,vec3(.28,.45*sin(loopAngle(t,.67)+.5),.22+.53*sin(loopAngle(t,.81))),t+3.4);
+    color = orbitStar(color,q-c1,.57,vec3(.30*cos(loopAngle(t,.61)),.56*sin(loopAngle(t,.67)),-.23+.41*sin(loopAngle(t,.78))),t);
     return color;
 }
 vec3 starStack(vec2 p, float t) {
-    float phase = mod(t+.52,3.58);
+    float phase = mod(t+.52,loopPeriod/5.);
     float glitch = smoothstep(.065,.25,phase)*(1.-smoothstep(.47,.86,phase));
     if (glitch < .001) return silverFormation(p,t);
 
@@ -473,21 +474,21 @@ vec3 starStack(vec2 p, float t) {
     float band = .40 - phase*1.64;
     float tear = filament(p.y-band,.073);
     float echo = filament(p.y-band-.23,.033);
-    float wave = sin(p.y*69.-t*20.);
-    float warp = (.12*tear-.07*echo)*sin(t*9.) + wave*(.011+.019*tear);
+    float wave = sin(p.y*69.-loopAngle(t,20.));
+    float warp = (.12*tear-.07*echo)*sin(loopAngle(t,9.)) + wave*(.011+.019*tear);
     p.x += warp*glitch;
     float split = glitch*(.020+.047*tear+.015*echo);
-    float delayed = t-glitch*.060*(.48+.52*sin(t*12.-p.y*3.));
+    float delayed = t-glitch*.060*(.48+.52*sin(loopAngle(t,12.)-p.y*3.));
     vec3 center = silverFormation(p,delayed);
     vec3 left = silverFormation(p-vec2(split,0),delayed);
     vec3 right = silverFormation(p+vec2(split,0),delayed);
     vec3 torn = vec3(left.r,center.g*.70+right.g*.30,right.b);
-    float tracking = 1.-glitch*(.05+.17*tear)*(.5+.5*cos(p.y*114.-t*15.));
+    float tracking = 1.-glitch*(.05+.17*tear)*(.5+.5*cos(p.y*114.-loopAngle(t,15.)));
     return mix(center,torn,glitch)*tracking;
 }
 `;
 
-function drawY2kFallback(pen, design, t, width, height) {
+function drawY2kFallback(pen, design, t, width, height, period) {
     const palettes = [['#28143d','#fa83c0','#cfeaff'], ['#072638','#17adbf','#9cfaec'], ['#05040c','#232039','#dfe7ff']];
     const [dark,mid,light] = palettes[design];
     const sky = pen.createLinearGradient(0,0,0,height);
@@ -502,7 +503,7 @@ function drawY2kFallback(pen, design, t, width, height) {
     pen.lineWidth = .025;
     pen.strokeStyle = light;
     if (design === 0) {
-        pen.rotate(-t*.52);
+        pen.rotate(-loopAngle(t,.52,period));
         pen.fillStyle = light;
         pen.beginPath();
         for(let i=0; i<128; i++) {
@@ -512,12 +513,12 @@ function drawY2kFallback(pen, design, t, width, height) {
         }
         pen.closePath();
         pen.fill();
-        pen.rotate(t*.32);
+        pen.rotate(loopAngle(t,.32,period));
         pen.beginPath();
         pen.ellipse(0,0,1.12,.31,.35,0,Math.PI*2);
         pen.stroke();
     } else if (design === 1) {
-        pen.rotate(.14*Math.cos(t*.8));
+        pen.rotate(.14*Math.cos(loopAngle(t,.8,period)));
         pen.fillStyle = light;
         pen.beginPath();
         pen.roundRect(-.48,-.61,.96,1.22,.12);
@@ -526,17 +527,21 @@ function drawY2kFallback(pen, design, t, width, height) {
         pen.fillRect(-.38,-.44,.76,.52);
         pen.beginPath();
         for(let x=-.37; x<.37; x+=.01) {
-            pen.lineTo(x,-.18+.12*Math.sin(x*25+t*5)*Math.cos(x*8-t*3));
+            pen.lineTo(x,-.18+.12*Math.sin(x*25+loopAngle(t,5,period))*Math.cos(x*8-loopAngle(t,3,period)));
         }
         pen.stroke();
         for(let i=0; i<8; i++) {
-            pen.fillStyle = Math.sin(t*5+i)>0 ? mid : dark;
+            pen.fillStyle = dark;
             pen.fillRect(-.31+i*.05,.24,.025,.075);
+            pen.globalAlpha = .5+.5*Math.sin(loopAngle(t,5,period)+i);
+            pen.fillStyle = mid;
+            pen.fillRect(-.31+i*.05,.24,.025,.075);
+            pen.globalAlpha = 1;
         }
     } else {
-        const phase = (t/9.2)%1;
+        const phase = t/period;
         const opening = Math.sin(Math.PI*Math.min(1,Math.max(0,(phase-.24)/.45)))**2;
-        pen.rotate(Math.PI*2*phase+.14*Math.sin(t*1.4));
+        pen.rotate(Math.PI*2*phase+.14*Math.sin(loopAngle(t,1.4,period)));
         pen.strokeStyle = 'rgba(158,167,255,.60)';
         pen.beginPath();
         pen.ellipse(0,0,1.02+.15*opening,.32,.52,0,Math.PI*2);
@@ -563,7 +568,7 @@ function drawY2kFallback(pen, design, t, width, height) {
     pen.restore();
 }
 
-function drawY2kExtraFallback(pen, design, t, width, height) {
+function drawY2kExtraFallback(pen, design, t, width, height, period) {
     pen.fillStyle = design === 0 ? '#170910' : '#030305';
     pen.fillRect(0,0,width,height);
     pen.save();
@@ -572,10 +577,10 @@ function drawY2kExtraFallback(pen, design, t, width, height) {
     if (design === 0) {
         const limit = Math.ceil(width/height);
         for (let row=-2;row<=2;row++) for (let col=-limit;col<=limit;col++) {
-            const pulse=.5+.5*Math.sin(t*1.88-col*.65-row*.66);
+            const pulse=.5+.5*Math.sin(loopAngle(t,1.88,period)-col*.65-row*.66);
             pen.save();
-            pen.translate(col*.53+(row%2)*.20+.09*Math.sin(t+row),row*.53+.09*Math.sin(t+col));
-            pen.rotate(.31*Math.sin(t*.81+row+col));
+            pen.translate(col*.53+(row%2)*.20+.09*Math.sin(loopAngle(t,1,period)+row),row*.53+.09*Math.sin(loopAngle(t,1,period)+col));
+            pen.rotate(.31*Math.sin(loopAngle(t,.81,period)+row+col));
             pen.scale(.28+.05*pulse,.29+.07*pulse);
             pen.beginPath();
             pen.moveTo(0,.79);
@@ -594,9 +599,9 @@ function drawY2kExtraFallback(pen, design, t, width, height) {
         for (let i=0;i<3;i++) {
             const r = [.52,.37,.30][i];
             pen.save();
-            const spread=.12*Math.sin(t*.81);
+            const spread=.12*Math.sin(loopAngle(t,.81,period));
             pen.translate([-.10,.43+spread,-.31-spread][i],[.19,-.12,-.40][i]);
-            pen.rotate(.31*Math.sin(t*.84+i)+i*.46);
+            pen.rotate(.31*Math.sin(loopAngle(t,.84,period)+i)+i*.46);
             const chrome = pen.createLinearGradient(0,-r,0,r);
             chrome.addColorStop(0,'#ecf4ff');
             chrome.addColorStop(.42,'#949ba7');
@@ -619,11 +624,11 @@ function drawY2kExtraFallback(pen, design, t, width, height) {
     }
     pen.restore();
     if (design === 1) {
-        const phase = (t+.52)%3.58;
+        const phase = (t+.52)%(period/5);
         const strength = Math.max(0,Math.min(1,(phase-.065)/.185,(.86-phase)/.39));
         for (let i=0;i<7 && strength>.01;i++) {
             const y = Math.floor((.24+i*.084)*height);
-            const shift = Math.sin(t*11+i*41.)*width*.035*strength;
+            const shift = Math.sin(loopAngle(t,11,period)+i*41.)*width*.035*strength;
             pen.drawImage(pen.canvas,0,y,width,2,shift,y,width,2);
         }
     }

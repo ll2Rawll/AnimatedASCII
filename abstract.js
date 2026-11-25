@@ -1,6 +1,7 @@
 // Draw the procedural effects once per character cell, then typeset them at display resolution.
 const fieldPrelude = `
 precision highp float;
+${loopClock}
 
 uniform float time;
 uniform float aspect;
@@ -25,9 +26,10 @@ float noise(vec2 p) {
     return mix(mix(hash(i),hash(i+vec2(1,0)),w.x),
                mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),w.x),w.y);
 }
+${loopNoiseSource}
 vec3 gradient(float t, vec3 a, vec3 b, vec3 c) {
     t = clamp(t, 0., 1.);
-    return t < .5 ? mix(a,b,t*2.) : mix(b,c,t*2.-1.);
+    return t < .5 ? mix(a,b,loopAngle(t,2.)) : mix(b,c,loopAngle(t,2.)-1.);
 }
 float filament(float d, float width) {
     return exp(-abs(d)/width);
@@ -35,27 +37,30 @@ float filament(float d, float width) {
 float stars(vec2 p, float t) {
     vec2 mosaic = p*vec2(87.,68.);
     float seed = hash(floor(mosaic));
-    float wink = .36+.64*pow(.5+.5*sin(t*1.9+seed*727.),3.);
-    return step(.984,seed)*(1.-smoothstep(.16,.57,length(fract(mosaic)-.5)))*wink;
+    float wink = .36+.64*pow(.5+.5*sin(loopAngle(t,1.9)+seed*727.),3.);
+    return step(.984,seed)*(1.-smoothstep(.16,.49,length(fract(mosaic)-.5)))*wink;
 }
 
 `;
 
 const neonScenes = `
 vec3 horizon(vec2 p, float t) {
-    vec2 q = rotate(.24+.095*sin(t*.36))*p;
-    q.x += .025*sin(t*.7);
+    vec2 q = rotate(.24+.095*sin(loopAngle(t,.36)))*p;
+    q.x += .025*sin(loopAngle(t,.7));
     float r = length(q);
     float a = atan(q.y,q.x);
-    float compression = .29+.08*sin(t*.44);
+    float compression = .29+.08*sin(loopAngle(t,.44));
     vec2 plane = q*vec2(1.,1./compression);
     float distance = length(plane);
     float angle = atan(plane.y,plane.x);
-    float sweep = angle + t*(.42 + .35 / max(distance,.31));
+    // The disk advances a whole number of turns while a cyclic shear preserves
+    // its differential swirl without putting steps between neighboring rings.
+    float shear = (.35 / max(distance,.31)-.45)*2.1;
+    float sweep = angle + loopAngle(t,.92) + shear*sin(TAU*t/loopPeriod);
     float warp = sin(5.*sweep+22.*distance)*.027 + sin(13.*sweep-8.*distance)*.008;
-    float bands = pow(.5+.5*sin((distance+warp)*117.-t*.76), 5.);
+    float bands = pow(.5+.5*sin((distance+warp)*117.-loopAngle(t,.76)), 5.);
     float turbulence = noise(vec2(cos(sweep),sin(sweep))*5. + distance*vec2(3.,11.));
-    float grain = noise(vec2(distance*97., cos(7.*sweep)*9. + t*.26));
+    float grain = loopNoise(vec2(distance*97.,cos(7.*sweep)*9.),vec2(0.,.26),t);
     float flare = pow(.5+.5*sin(2.*sweep-4.*distance),5.);
     float disk = smoothstep(.36,.44,distance)*(1.-smoothstep(.95,1.48,distance));
     disk *= (.18+.82*pow(turbulence,2.))*(.27+.73*bands) * (.36 + .64*grain);
@@ -65,38 +70,38 @@ vec3 horizon(vec2 p, float t) {
     vec3 glow = diskColor * disk * 4.8;
     glow += diskColor * .20 * filament(distance-.59,.27) * filament(q.y,.25);
 
-    float border = .338+.006*sin(4.*a+t*.65);
+    float border = .338+.006*sin(4.*a+loopAngle(t,.65));
     float orbit = filament(r-border,.0085);
     float caustic = filament(r-border,.046);
     float loopRadius = length(vec2(q.x,q.y*1.23));
-    float glass = .40+.058*sin(a*2.+.4) + .014*sin(a*7.+t*.7);
+    float glass = .40+.058*sin(a*2.+.4) + .014*sin(a*7.+loopAngle(t,.7));
     float lens = filament(loopRadius-glass,.023);
     lens += .55*filament(loopRadius-glass-.054,.012) + .39*filament(loopRadius-glass-.101,.009);
-    lens *= (.27+.73*pow(.5+.5*sin(10.*a-t*2.2+sin(a*5.)),2.)) * smoothstep(-.12,.24,q.y);
-    vec3 lensColor = gradient(.5+.5*sin(1.5*a-t*.36),vec3(.27,.05,1.),vec3(1.,.045,.54),vec3(1.,.42,.055));
+    lens *= (.27+.73*pow(.5+.5*sin(10.*a-loopAngle(t,2.2)+sin(a*5.)),2.)) * smoothstep(-.12,.24,q.y);
+    vec3 lensColor = gradient(.5+.5*sin(1.5*a-loopAngle(t,.36)),vec3(.27,.05,1.),vec3(1.,.045,.54),vec3(1.,.42,.055));
     float back = smoothstep(border-.017,border+.018,r);
-    float halo = filament(r-.37,.19) * pow(.5+.5*cos(2.*a+.32-t*.23),2.);
-    float mist = (.16+noise(p*8.+t*.045)*.84) * filament(length(p*vec2(.51,1.))-1.2,.39);
+    float halo = filament(r-.37,.19) * pow(.5+.5*cos(2.*a+.32-loopAngle(t,.23)),2.);
+    float mist = (.16+loopNoise(p*8.,vec2(.045),t)*.84) * filament(length(p*vec2(.51,1.))-1.2,.39);
     vec3 nebula = mist*.024*vec3(.21,.07,1.)*back + halo*.09*lensColor*back;
     float front = 1.-smoothstep(-.18,-.025,q.y);
     vec3 color = mix(glow*back,glow,max(back,front));
     color += lensColor*(orbit*1.3 + caustic*.20 + lens*.73);
-    color += vec3(1.,.74,.46) * orbit * .88 * pow(.5+.5*sin(2.*a-t*1.1),5.);
+    color += vec3(1.,.74,.46) * orbit * .88 * pow(.5+.5*sin(2.*a-loopAngle(t,1.1)),5.);
 
-    float star = stars(p + vec2(t*.005,0.),t)*smoothstep(.4,.58,r);
+    float star = stars(p + vec2(.02*sin(loopAngle(t,.25)),0.),t)*smoothstep(.4,.58,r);
     color += star * vec3(.55,.38,1.);
     float spark = pow(.5+.5*sin(sweep*31.+sin(distance*72.)*3.),16.)
-                * pow(.5+.5*sin(distance*214.-t*1.8),13.);
+                * pow(.5+.5*sin(distance*214.-loopAngle(t,1.8)),13.);
     color += spark*diskColor*smoothstep(.52,.65,distance)*(1.-smoothstep(.89,1.38,distance))*back;
     // Twin particle jets eject a burst along the axis of the accretion disk.
     float axial = abs(q.y);
-    float flareTime = fract((t+.85)*.155);
+    float flareTime = fract(loopTurns(t+.85,.155));
     float jetFront = .30 + flareTime*.89;
     float jetWidth = .014 + .10*smoothstep(.30,1.,axial);
-    float streak = filament(q.x + .038*sin(q.y*11.-t*1.25),jetWidth);
+    float streak = filament(q.x + .038*sin(q.y*11.-loopAngle(t,1.25)),jetWidth);
     float flareEnvelope = sin(3.14159*flareTime)*sin(3.14159*flareTime);
     float jet = streak * filament(axial-jetFront,.19) * flareEnvelope;
-    jet *= smoothstep(.35,.45,axial)*(.28+.72*noise(q*vec2(127.,72.)-vec2(0.,t*7.)));
+    jet *= smoothstep(.35,.45,axial)*(.28+.72*loopNoise(q*vec2(127.,72.),vec2(0.,-7.),t));
     vec3 jetColor = mix(vec3(.68,.08,1.),vec3(.23,.74,1.),smoothstep(.42,.83,axial));
     return BLACK + color + nebula + jetColor*jet*.46;
 }
@@ -116,21 +121,21 @@ vec2 engine(vec3 p) {
     float third = torus(z,.79,.037);
     vec2 result = first < second ? vec2(first,0) : vec2(second,1);
     if (third < result.x) result = vec2(third,2);
-    float core = (dot(abs(p),vec3(1.))-(.313+.026*sin(time*2.0)))*.57735;
+    float core = (dot(abs(p),vec3(1.))-(.313+.026*sin(loopAngle(time,2.0))))*.57735;
     return core < result.x ? vec2(core,3) : result;
 }
 vec3 prism(vec2 p, float t) {
     float r = length(p), a = atan(p.y,p.x);
     float fringe = filament(r-.927,.010)*.28 + filament(r-.955,.007)*
-                   pow(.5+.5*sin(a*88.+t*.72),11.)*.77;
+                   pow(.5+.5*sin(a*88.+loopAngle(t,.72)),11.)*.77;
     float satellites = filament(r-.985-.009*sin(6.*a),.008)
-                    * pow(.5+.5*cos(a*5.-t*1.75),24.);
-    float wave = fract(t*.39-.18*a/TAU);
-    float shock = pow(.5+.5*cos(t*1.63),8.);
+                    * pow(.5+.5*cos(a*5.-loopAngle(t,1.75)),24.);
+    float wave = fract(loopTurns(t,.39)-.18*a/TAU);
+    float shock = pow(.5+.5*cos(loopAngle(t,1.63)),8.);
     float trace = filament(r-.905-.2*wave,.009)*shock*
-                  pow(.5+.5*cos(a*12.-t*3.),8.);
+                  pow(.5+.5*cos(a*12.-loopAngle(t,3.)),8.);
     float scan = filament(r-(.67+wave*.52),.011)
-               * sin(wave*3.14159)*pow(.5+.5*sin(a*7.+t*.8),7.);
+               * sin(wave*3.14159)*pow(.5+.5*sin(a*7.+loopAngle(t,.8)),7.);
     float fog = exp(-r*r*3.1)*.64;
     vec3 color = BLACK + vec3(.028,.028,.18)*fog
                + fringe*vec3(.075,.21,.35) + satellites*vec3(.68,.32,1.)
@@ -138,8 +143,8 @@ vec3 prism(vec2 p, float t) {
     if (r > .88) return color;
 
     vec3 o = vec3(p,1.04), ray = vec3(0.,0.,-1.);
-    float tilt = .87 + .37*sin(t*.63);
-    float spin = t*.87 + .23*sin(t*.4);
+    float tilt = .87 + .37*sin(loopAngle(t,.63));
+    float spin = loopAngle(t,.87) + .23*sin(loopAngle(t,.4));
     o = twist(o,tilt,spin);
     ray = twist(ray,tilt,spin);
     float dist = 0.;
@@ -166,8 +171,8 @@ vec3 prism(vec2 p, float t) {
     if (id == 1.) local = twist(point,1.03,.24);
     if (id == 2.) local = twist(point,-.76,1.43);
     float orbit = atan(local.z,local.x);
-    float ember = pow(.5+.5*sin(3.*orbit+t*3.8+id),8.);
-    float etch = pow(.5+.5*sin(orbit*45.-t*1.5),7.);
+    float ember = pow(.5+.5*sin(3.*orbit+loopAngle(t,3.8)+id),8.);
+    float etch = pow(.5+.5*sin(orbit*45.-loopAngle(t,1.5)),7.);
     float seam = filament(abs(local.y)-.021,.009);
     float reflection = pow(max(0.,dot(reflect(ray,n),normalize(vec3(.15,.6,1.)))),10.);
     float light = .24+.48*max(0.,dot(n, normalize(vec3(-.4,.5,.7))));
@@ -176,7 +181,7 @@ vec3 prism(vec2 p, float t) {
     if (id == 1.) metallic = vec3(.82,.12,1.);
     if (id == 2.) metallic = vec3(.55,1.,.070);
     if (id == 3.) {
-        metallic = gradient(.52+.38*sin(t*2.+point.x*16.),vec3(.04,.90,1.),vec3(.64,.2,1.),vec3(1.,.99,.4));
+        metallic = gradient(.52+.38*sin(loopAngle(t,2.)+point.x*16.),vec3(.04,.90,1.),vec3(.64,.2,1.),vec3(1.,.99,.4));
     }
     color += metallic*(light + .83*edge + 1.09*ember + .32*etch);
     color += vec3(.72,.90,1.) * (.32*edge + .62*reflection + .19*seam + .34*etch*ember + .35*shock*ember);
@@ -184,39 +189,39 @@ vec3 prism(vec2 p, float t) {
 }
 
 vec3 liquid(vec2 p, float t) {
-    vec2 q = rotate(-.24+.14*sin(t*.39))*p;
-    float fold = .27*sin(q.x*2.2-t*.83) + .19*cos(q.x*3.7+t*.64);
+    vec2 q = rotate(-.24+.14*sin(loopAngle(t,.39)))*p;
+    float fold = .27*sin(q.x*2.2-loopAngle(t,.83)) + .19*cos(q.x*3.7+loopAngle(t,.64));
     q.y -= fold;
-    float flow = q.x*3.2-t*1.24;
-    float warp = sin(q.x*4.1 + q.y*2.6 + t*1.14);
-    float billow = .6 + .36*sin(q.x*2.65-t*1.1);
+    float flow = q.x*3.2;
+    float warp = sin(q.x*4.1 + q.y*2.6 + loopAngle(t,1.14));
+    float billow = .6 + .36*sin(q.x*2.65-loopAngle(t,1.1));
     vec3 color = BLACK + stars(p*1.4,t)*vec3(.23,.06,.29)*.59;
     for (int i=0; i<3; i++) {
         float band = float(i);
         float phase = band*2.06;
-        float axis = (band-1.)*.23 + sin(q.x*2.8+t*1.01+phase)*(.08+.21*billow)
-                   + sin(q.x*5.1-t*1.32+phase)*.065;
+        float axis = (band-1.)*.23 + sin(q.x*2.8+loopAngle(t,1.01)+phase)*(.08+.21*billow)
+                   + sin(q.x*5.1-loopAngle(t,1.32)+phase)*.065;
         float dist = q.y-axis;
-        float thickness = .13+.111*pow(.5+.5*sin(q.x*2.1+t+phase),2.);
+        float thickness = .13+.111*pow(.5+.5*sin(q.x*2.1+loopAngle(t,1.)+phase),2.);
         float envelope = exp(-pow(dist/thickness,2.));
-        float threads = 18.*dist/thickness + warp*3. + sin(q.x*2.-t*1.7+phase)*2.;
+        float threads = 18.*dist/thickness + warp*3. + sin(q.x*2.-loopAngle(t,1.7)+phase)*2.;
         float silk = pow(.5+.5*cos(threads),7.);
         float movingEdge = filament(abs(dist)-thickness*.70,.012+.007*billow);
-        float stream = .36+.64*pow(.5+.5*sin(flow+phase+dist*11.),3.);
-        float tap = noise(vec2(q.x*7.8-t*2.,dist*38.+phase));
-        float tint = .5+.5*sin(flow*.63 + dist*8.3 + phase);
+        float stream = .36+.64*pow(.5+.5*sin(flow-loopAngle(t,1.24)+phase+dist*11.),3.);
+        float tap = loopNoise(vec2(q.x*7.8,dist*38.+phase),vec2(-2.,0.),t);
+        float tint = .5+.5*sin(flow*.63-loopAngle(t,1.24*.63)+dist*8.3+phase);
         vec3 ribbon = gradient(tint,vec3(.045,.51,1.),vec3(.15,1.,.72),vec3(.69,.05,1.));
         if (i == 1) ribbon = gradient(tint,vec3(.26,.09,1.),vec3(1.,.04,.59),vec3(1.,.21,.18));
         float gauze = exp(-pow(dist/(thickness*1.85),2.));
-        float pulse = pow(.5+.5*sin(flow*1.46 + phase - dist*22.),10.);
+        float pulse = pow(.5+.5*sin(flow*1.46-loopAngle(t,1.24*1.46)+phase-dist*22.),10.);
         float sheen = .19*envelope + (.52+1.19*stream)*silk*envelope + movingEdge*.69;
         sheen += gauze*(.052+.095*pulse);
         color += ribbon*sheen*(.55+.45*tap);
-        float burst = pow(.5+.5*cos(q.x*2.6-t*2.1+phase),22.);
+        float burst = pow(.5+.5*cos(q.x*2.6-loopAngle(t,2.1)+phase),22.);
         float glitter = pow(tap,7.) * burst * gauze;
         color += vec3(.62,.56,.72)*(silk*envelope*max(0.,stream-.52)*1.6 + glitter*.77);
     }
-    float interference = pow(.5+.5*sin(q.y*83.+warp*5.-t*4.),17.);
+    float interference = pow(.5+.5*sin(q.y*83.+warp*5.-loopAngle(t,4.)),17.);
     color += vec3(.14,.035,.32)*interference*exp(-abs(q.y)*4.8)*(.3+.7*billow);
     return color;
 }
@@ -241,6 +246,7 @@ void main() {
 
 const neonType = `
 precision highp float;
+${loopClock}
 
 uniform sampler2D field;
 uniform sampler2D glyphs;
@@ -259,7 +265,7 @@ void main() {
     float peak = max(light.r,max(light.g,light.b));
     float strength = pow(peak,.78);
     float seed = fract(sin(dot(id,vec2(12.9898,78.233)))*43758.5453);
-    float shimmer = .46*sin(time*5.+seed*90.)*smoothstep(.29,.75,peak);
+    float shimmer = .46*sin(loopAngle(time,5.)+seed*90.)*smoothstep(.29,.75,peak);
     float tone = strength*glyphCount+seed*.76+(softType ? 0. : shimmer);
     float character = clamp(floor(tone),0.,glyphCount-1.);
     float ink = texture2D(glyphs,vec2((character+tile.x)/glyphCount,tile.y)).a;
@@ -284,13 +290,13 @@ function makeProceduralRenderer(gl, mesh) {
         y2kScenes + fieldMain('candyHeart','starStack','starStack')
     ].map(source => {
         const program = makeProgram(gl, backdropVertex, fieldPrelude + source);
-        const uniforms = Object.fromEntries(['time','aspect','design'].map(
+        const uniforms = Object.fromEntries(['time','aspect','design','loopPeriod'].map(
             name => [name, gl.getUniformLocation(program, name)]));
         return {program, uniforms, position: gl.getAttribLocation(program, 'position')};
     });
     const type = makeProgram(gl, backdropVertex, neonType);
     const typePosition = gl.getAttribLocation(type, 'position');
-    const typeUniforms = Object.fromEntries(['field','glyphs','grid','glyphCount','time','monochrome','softType'].map(
+    const typeUniforms = Object.fromEntries(['field','glyphs','grid','glyphCount','time','monochrome','softType','loopPeriod'].map(
         name => [name, gl.getUniformLocation(type, name)]));
     const paintBloom = makeBloomPainter(gl);
     const framebuffer = gl.createFramebuffer();
@@ -312,7 +318,7 @@ function makeProceduralRenderer(gl, mesh) {
         gl.disableVertexAttribArray(position);
     }
 
-    return (design, time, width, height, columns, rows) => {
+    return (design, time, period, width, height, columns, rows) => {
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
         if (columns !== lastColumns || rows !== lastRows) {
             gl.activeTexture(gl.TEXTURE2);
@@ -328,10 +334,11 @@ function makeProceduralRenderer(gl, mesh) {
         const light = lightingPrograms[Math.floor(design/3)];
         gl.useProgram(light.program);
         gl.uniform1f(light.uniforms.time,time);
+        gl.uniform1f(light.uniforms.loopPeriod,period);
         gl.uniform1f(light.uniforms.aspect,width/height);
         gl.uniform1i(light.uniforms.design,design%3);
         draw(light.position);
-        if (design === 7) paintBloom(time,width/height);
+        if (design === 7) paintBloom(time,width/height,period);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER,null);
         gl.viewport(0,0,width,height);
@@ -341,6 +348,7 @@ function makeProceduralRenderer(gl, mesh) {
         gl.uniform2f(typeUniforms.grid,columns,rows);
         gl.uniform1f(typeUniforms.glyphCount,glyphRamp.length);
         gl.uniform1f(typeUniforms.time,time);
+        gl.uniform1f(typeUniforms.loopPeriod,period);
         gl.uniform1i(typeUniforms.monochrome,design === 8 ? 1 : 0);
         gl.uniform1i(typeUniforms.softType,design >= 9 ? 1 : 0);
         draw(typePosition);
@@ -348,7 +356,7 @@ function makeProceduralRenderer(gl, mesh) {
 }
 
 // Canvas fallback for systems that disable WebGL.
-function drawNeonFallback(pen, design, t, width, height) {
+function drawNeonFallback(pen, design, t, width, height, period) {
     pen.fillStyle = '#07051a';
     pen.fillRect(0,0,width,height);
     pen.save();
@@ -362,21 +370,21 @@ function drawNeonFallback(pen, design, t, width, height) {
     pen.globalCompositeOperation = 'lighter';
     for (let i=0; i<33; i++) {
         const group = i%3;
-        const hue = palettes[design][group] + Math.sin(t+i)*13;
-        pen.strokeStyle = `hsla(${hue},100%,61%,${.19+.45*(.5+.5*Math.sin(t*2.2+i*.7))})`;
+        const hue = palettes[design][group] + Math.sin(loopAngle(t,1,period)+i)*13;
+        pen.strokeStyle = `hsla(${hue},100%,61%,${.19+.45*(.5+.5*Math.sin(loopAngle(t,2.2,period)+i*.7))})`;
         pen.lineWidth = .009 + .008*(i%3);
         pen.beginPath();
         if (design < 2) {
             const radius = design === 0 ? .39+i*.023 : .45+i*.009;
-            const a = design === 0 ? -.22 : t*.46+group*1.05;
-            const squash = design === 0 ? (i%4 === 0 ? .88 : .24) : .32+.25*Math.sin(t+group*2);
-            const start = t*(.8+(i%4)*.17)+i*1.12;
+            const a = design === 0 ? -.22 : loopAngle(t,.46,period)+group*1.05;
+            const squash = design === 0 ? (i%4 === 0 ? .88 : .24) : .32+.25*Math.sin(loopAngle(t,1,period)+group*2);
+            const start = loopAngle(t,.8+(i%4)*.17,period)+i*1.12;
             pen.ellipse(0,0,radius,radius*squash,a,start,start+1.25+(i%4)*.57);
         } else {
             const limit = width/height;
             for (let x=-limit; x<=limit; x+=.035) {
-                const y = .28*Math.sin(x*2.8-t+i*.015) + .13*Math.cos(x*5.2+t*1.4+group)
-                    + (group-1)*.23 + (i/3-5)*.025*Math.sin(x*1.9+t*.78);
+                const y = .28*Math.sin(x*2.8-loopAngle(t,1,period)+i*.015) + .13*Math.cos(x*5.2+loopAngle(t,1.4,period)+group)
+                    + (group-1)*.23 + (i/3-5)*.025*Math.sin(x*1.9+loopAngle(t,.78,period));
                 pen.lineTo(x,y);
             }
         }
