@@ -40,9 +40,9 @@ const scenes = [
         kicker: 'Y2K', subtitle: 'A live waveform flickers inside a floating gadget.'
     },
     {
-        name: 'Hyperlink Highway', icon: '»',
-        desc: 'An arcade racer at sunset',
-        kicker: 'Y2K', subtitle: 'Chase the horizon past a rush of neon gates.'
+        name: 'Chrome Cross', icon: '✦',
+        desc: 'A polished cross with lilac reflections',
+        kicker: 'Y2K', subtitle: 'Silver bevels catch the light as the pendant turns.'
     },
     {
         name: 'Kaleido Drive', icon: '⬡',
@@ -58,6 +58,16 @@ const scenes = [
         name: 'Ink Fold', icon: '◐',
         desc: 'A folding black-and-white ribbon',
         kicker: 'KINETIC', subtitle: 'A twisting strip of paper carries waves of ink.'
+    },
+    {
+        name: 'Heart Circuit', icon: '♥',
+        desc: 'Glowing pink hearts in a liquid pattern',
+        kicker: 'Y2K', subtitle: 'A pulse travels through shifting bands of pink.'
+    },
+    {
+        name: 'Silver Stars', icon: '☆',
+        desc: 'A cluster of beveled chrome stars',
+        kicker: 'Y2K', subtitle: 'Chrome stars scatter into RGB glitches and snap back into formation.'
     }
 ];
 
@@ -93,6 +103,10 @@ const images = scenes.map(({image, name}) => {
 });
 const formatNumber = n => String(n).padStart(2,'0');
 const collections = ['Christmas', 'Neon abstract', 'Y2K', 'Kinetic'];
+const collectionIndex = index => index >= 12 ? 2 : Math.floor(index/3);
+const galleryOrder = scenes.map((_, index) => index)
+    .sort((a, b) => collectionIndex(a) - collectionIndex(b));
+const sceneNumber = index => formatNumber(galleryOrder.indexOf(index) + 1);
 const sceneLists = collections.map(label => {
     const group = document.createElement('div');
     group.className = 'scene-group';
@@ -108,11 +122,11 @@ const sceneLists = collections.map(label => {
 const sceneButtons = scenes.map(({name}, index) => {
     const button = document.createElement('button');
     button.className = 'scene-btn';
-    button.innerHTML = '<span class="num">' + formatNumber(index + 1) + '</span>' +
+    button.innerHTML = '<span class="num">' + sceneNumber(index) + '</span>' +
         '<span class="name"></span><span class="arrow" aria-hidden="true"></span>';
     button.querySelector('.name').textContent = name;
     button.onclick = () => selectScene(index);
-    sceneLists[Math.floor(index/3)].append(button);
+    sceneLists[collectionIndex(index)].append(button);
     return button;
 });
 
@@ -128,12 +142,12 @@ function selectScene(index) {
     });
     const abstract = !scene.image;
     document.body.classList.toggle('neon',abstract);
-    document.body.classList.toggle('y2k', index >= 6 && index < 9);
-    document.body.classList.toggle('kinetic', index >= 9);
+    document.body.classList.toggle('y2k', collectionIndex(index) === 2);
+    document.body.classList.toggle('kinetic', collectionIndex(index) === 3);
     document.body.classList.toggle('monochrome', index === 11);
-    $('#collection').textContent = collections[Math.floor(index/3)].toUpperCase();
-    $('#preview-count').textContent = 'SCENE ' + formatNumber(index + 1) + ' / ' + formatNumber(scenes.length);
-    $('#art-num').textContent = 'NO. ' + formatNumber(index + 1);
+    $('#collection').textContent = collections[collectionIndex(index)].toUpperCase();
+    $('#preview-count').textContent = 'SCENE ' + sceneNumber(index) + ' / ' + formatNumber(scenes.length);
+    $('#art-num').textContent = 'NO. ' + sceneNumber(index);
     $('#art-title').textContent = $('#footer-title').textContent = scene.name;
     $('#art-kicker').textContent = scene.kicker;
     $('#art-subtitle').textContent = scene.subtitle;

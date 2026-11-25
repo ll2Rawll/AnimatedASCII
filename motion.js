@@ -292,7 +292,9 @@ function makeMotion(canvas, preferGpu = true) {
                 sample.width = columns;
                 sample.height = rows;
             }
-            if (scene >= 9) {
+            if (scene >= 12) {
+                drawY2kExtraFallback(sampler, scene - 12, time, columns, rows);
+            } else if (scene >= 9) {
                 drawKineticFallback(sampler, scene - 9, time, columns, rows);
             } else if (scene >= 6) {
                 drawY2kFallback(sampler, scene - 6, time, columns, rows);

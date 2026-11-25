@@ -273,8 +273,9 @@ void main() {
 function makeProceduralRenderer(gl, mesh) {
     const lightingPrograms = [
         neonScenes + fieldMain('horizon','prism','liquid'),
-        y2kScenes + fieldMain('chromeBloom','dialUp','highway'),
-        kineticScenes + fieldMain('kaleidoDrive','bloomBackdrop','inkFold')
+        y2kScenes + fieldMain('chromeBloom','dialUp','chromeCross'),
+        kineticScenes + fieldMain('kaleidoDrive','bloomBackdrop','inkFold'),
+        y2kScenes + fieldMain('candyHeart','starStack','starStack')
     ].map(source => {
         const program = makeProgram(gl, backdropVertex, fieldPrelude + source);
         const uniforms = Object.fromEntries(['time','aspect','design'].map(

@@ -2,7 +2,7 @@
 
 # AnimatedASCII
 
-**Twelve live wallpapers for Windows, drawn in ASCII.**
+**Fourteen live wallpapers for Windows, drawn in ASCII.**
 
 <img src="docs/kinetic-ascii.webp" alt="Animated preview of Kaleido Drive, Bloom Breaker, and Ink Fold" width="672">
 
@@ -17,13 +17,15 @@
 <details>
 <summary>Y2K collection</summary>
 
-<img src="docs/y2k-ascii.webp" alt="Animated preview of the three Y2K wallpapers" width="672">
+<img src="docs/y2k-ascii.webp" alt="Animated preview of the five Y2K wallpapers" width="672">
 
 | Y2K | What moves |
 | :--- | :--- |
 | **Chrome Bloom** | A liquid chrome star tumbles through an orbit of pearls and pink glints. |
 | **Dial-Up Dream** | A translucent aqua terminal floats through rising bubbles while its waveform and LEDs react. |
-| **Hyperlink Highway** | Neon gates sweep past a chrome racer against a striped sunset. |
+| **Chrome Cross** | A silver pendant turns through lilac reflections and sharp glints. |
+| **Heart Circuit** | Glowing pink hearts stretch and pulse through a liquid pattern. |
+| **Silver Stars** | Chrome stars split into RGB glitches, then snap back into formation. |
 
 </details>
 
