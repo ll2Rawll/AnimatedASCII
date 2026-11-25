@@ -244,44 +244,6 @@ void main() {
 }
 `;
 
-const neonType = `
-precision highp float;
-${loopClock}
-
-uniform sampler2D field;
-uniform sampler2D glyphs;
-uniform vec2 grid;
-uniform float glyphCount;
-uniform float time;
-uniform bool monochrome;
-uniform bool softType;
-varying vec2 uv;
-
-void main() {
-    vec2 id = floor(uv*grid);
-    vec2 tile = fract(uv*grid);
-    vec2 center = (id+.5)/grid;
-    vec3 light = texture2D(field,vec2(center.x,1.-center.y)).rgb;
-    float peak = max(light.r,max(light.g,light.b));
-    float strength = pow(peak,.78);
-    float seed = fract(sin(dot(id,vec2(12.9898,78.233)))*43758.5453);
-    float shimmer = .46*sin(loopAngle(time,5.)+seed*90.)*smoothstep(.29,.75,peak);
-    float tone = strength*glyphCount+seed*.76+(softType ? 0. : shimmer);
-    float character = clamp(floor(tone),0.,glyphCount-1.);
-    float ink = texture2D(glyphs,vec2((character+tile.x)/glyphCount,tile.y)).a;
-    if (softType && character < glyphCount-1.) {
-        float next = texture2D(glyphs,vec2((character+1.+tile.x)/glyphCount,tile.y)).a;
-        ink = mix(ink,next,smoothstep(.42,.98,fract(tone)));
-    }
-    vec3 aura = light * (.19+.17*strength) + vec3(.004,.005,.014);
-    vec3 textColor = clamp(light * (1.2 + 1.2*(1.-peak)),0.,1.);
-    textColor = mix(textColor,vec3(.92,.97,1.),smoothstep(.85,1.,peak)*.42);
-    vec3 color = mix(aura,textColor,ink);
-    if (monochrome) color = vec3(dot(color,vec3(.2126,.7152,.0722)));
-    gl_FragColor = vec4(color,1.);
-}
-`;
-
 function makeProceduralRenderer(gl, mesh) {
     const lightingPrograms = [
         neonScenes + fieldMain('horizon','prism','liquid'),
@@ -294,68 +256,20 @@ function makeProceduralRenderer(gl, mesh) {
             name => [name, gl.getUniformLocation(program, name)]));
         return {program, uniforms, position: gl.getAttribLocation(program, 'position')};
     });
-    const type = makeProgram(gl, backdropVertex, neonType);
-    const typePosition = gl.getAttribLocation(type, 'position');
-    const typeUniforms = Object.fromEntries(['field','glyphs','grid','glyphCount','time','monochrome','softType','loopPeriod'].map(
-        name => [name, gl.getUniformLocation(type, name)]));
     const paintBloom = makeBloomPainter(gl);
-    const framebuffer = gl.createFramebuffer();
-    const lighting = gl.createTexture();
-    gl.activeTexture(gl.TEXTURE2);
-    gl.bindTexture(gl.TEXTURE_2D, lighting);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.activeTexture(gl.TEXTURE0);
-    let lastColumns = 0, lastRows = 0;
 
-    function draw(position) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, mesh);
-        gl.enableVertexAttribArray(position);
-        gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        gl.disableVertexAttribArray(position);
-    }
-
-    return (design, time, period, width, height, columns, rows) => {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-        if (columns !== lastColumns || rows !== lastRows) {
-            gl.activeTexture(gl.TEXTURE2);
-            gl.bindTexture(gl.TEXTURE_2D, lighting);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, columns, rows, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, lighting, 0);
-            gl.activeTexture(gl.TEXTURE0);
-            lastColumns = columns;
-            lastRows = rows;
-        }
-
-        gl.viewport(0,0,columns,rows);
+    return (design, time, period, aspect) => {
         const light = lightingPrograms[Math.floor(design/3)];
         gl.useProgram(light.program);
         gl.uniform1f(light.uniforms.time,time);
         gl.uniform1f(light.uniforms.loopPeriod,period);
-        gl.uniform1f(light.uniforms.aspect,width/height);
+        gl.uniform1f(light.uniforms.aspect,aspect);
         gl.uniform1i(light.uniforms.design,design%3);
-        draw(light.position);
-        if (design === 7) paintBloom(time,width/height,period);
-
-        gl.bindFramebuffer(gl.FRAMEBUFFER,null);
-        gl.viewport(0,0,width,height);
-        gl.useProgram(type);
-        gl.uniform1i(typeUniforms.field,2);
-        gl.uniform1i(typeUniforms.glyphs,1);
-        gl.uniform2f(typeUniforms.grid,columns,rows);
-        gl.uniform1f(typeUniforms.glyphCount,glyphRamp.length);
-        gl.uniform1f(typeUniforms.time,time);
-        gl.uniform1f(typeUniforms.loopPeriod,period);
-        gl.uniform1i(typeUniforms.monochrome,design === 8 ? 1 : 0);
-        gl.uniform1i(typeUniforms.softType,design >= 9 ? 1 : 0);
-        draw(typePosition);
+        drawField(gl,mesh,light.position);
+        if (design === 7) paintBloom(time,aspect,period);
     };
 }
 
-// Canvas fallback for systems that disable WebGL.
 function drawNeonFallback(pen, design, t, width, height, period) {
     pen.fillStyle = '#07051a';
     pen.fillRect(0,0,width,height);

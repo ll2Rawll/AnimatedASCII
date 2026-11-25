@@ -55,6 +55,8 @@
 
 </details>
 
+The app draws live, colored ASCII characters on a pure black background. The reels in this README are recordings for preview.
+
 ## Run on Windows
 
 Install [Node.js 20 or newer](https://nodejs.org/), then run these commands in the project folder.

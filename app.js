@@ -1,73 +1,59 @@
 const scenes = [
     {
         name: 'Fireside Forest', image: 'forest.webp', icon: '✳',
-        desc: 'A campfire beneath the winter moon',
-        kicker: 'A MOMENT IN THE WOODS', subtitle: 'Snow falls over a moonlit clearing.'
+        desc: 'A campfire beneath the winter moon'
     },
     {
         name: 'Christmas Eve', image: 'cabin.webp', icon: '⌂',
-        desc: 'A cabin beside a flowing creek',
-        kicker: 'SOMEWHERE IN THE SNOW', subtitle: 'The cabin lights spill across the water.'
+        desc: 'A cabin beside a flowing creek'
     },
     {
         name: 'Northern Lights', image: 'aurora.webp', icon: '✧',
-        desc: 'A Christmas tree by an Arctic lake',
-        kicker: 'A SKY FULL OF WONDER', subtitle: 'The aurora drifts across a still winter sky.'
+        desc: 'A Christmas tree by an Arctic lake'
     },
     {
         name: 'Event Horizon', icon: '◉',
-        desc: 'An accretion disk of gold, pink, and ultraviolet',
-        kicker: 'NEON ABSTRACT', subtitle: 'Rings of light bend around a dark center.'
+        desc: 'An accretion disk of gold, pink, and ultraviolet'
     },
     {
         name: 'Prism Engine', icon: '◇',
-        desc: 'Interlocking rings in cyan, violet, and lime',
-        kicker: 'NEON ABSTRACT', subtitle: 'Energy races around a rotating crystal core.'
+        desc: 'Interlocking rings in cyan, violet, and lime'
     },
     {
         name: 'Liquid Signal', icon: '≈',
-        desc: 'Iridescent ribbons in teal and hot pink',
-        kicker: 'NEON ABSTRACT', subtitle: 'Waves fold into one another and split into threads.'
+        desc: 'Iridescent ribbons in teal and hot pink'
     },
     {
         name: 'Chrome Bloom', icon: '✦',
-        desc: 'Liquid silver and candy pink',
-        kicker: 'Y2K', subtitle: 'A chrome star turns through an orbit of pearls.'
+        desc: 'Liquid silver and candy pink'
     },
     {
         name: 'Dial-Up Dream', icon: '◍',
-        desc: 'A translucent aqua terminal',
-        kicker: 'Y2K', subtitle: 'A live waveform flickers inside a floating gadget.'
+        desc: 'A translucent aqua terminal'
     },
     {
         name: 'Chrome Cross', icon: '✦',
-        desc: 'A polished cross with lilac reflections',
-        kicker: 'Y2K', subtitle: 'A spinning pendant breaks into orbiting pieces and locks back together.'
+        desc: 'A polished cross with lilac reflections'
     },
     {
         name: 'Kaleido Drive', icon: '⬡',
-        desc: 'A twisting tunnel of colored facets',
-        kicker: 'KINETIC', subtitle: 'Light overtakes you as the tunnel twists.'
+        desc: 'A twisting tunnel of colored facets'
     },
     {
         name: 'Bloom Breaker', icon: '✺',
-        desc: 'A flower made from thousands of particles',
-        kicker: 'KINETIC', subtitle: 'The bloom bursts into dust, braids, and rebuilds.'
+        desc: 'A flower made from thousands of particles'
     },
     {
         name: 'Ink Fold', icon: '◐',
-        desc: 'A folding black-and-white ribbon',
-        kicker: 'KINETIC', subtitle: 'A twisting strip of paper carries waves of ink.'
+        desc: 'A folding black-and-white ribbon'
     },
     {
         name: 'Heart Circuit', icon: '♥',
-        desc: 'Glowing pink hearts in a liquid pattern',
-        kicker: 'Y2K', subtitle: 'A pulse travels through shifting bands of pink.'
+        desc: 'Glowing pink hearts in a liquid pattern'
     },
     {
         name: 'Silver Stars', icon: '☆',
-        desc: 'A cluster of beveled chrome stars',
-        kicker: 'Y2K', subtitle: 'Rolling RGB distortion sweeps across the stars as they glide.'
+        desc: 'A cluster of beveled chrome stars'
     }
 ];
 
@@ -79,16 +65,13 @@ let paused = false;
 let lastTime = null;
 let sceneTime = 0;
 let dirty = true;
-let canvas = $('#scene');
+const surface = $('#scene');
 let render;
 try {
-    render = makeMotion(canvas);
+    render = makeMotion(surface);
 } catch (error) {
-    console.warn('Using the canvas renderer', error);
-    const fallback = canvas.cloneNode();
-    canvas.replaceWith(fallback);
-    canvas = fallback;
-    render = makeMotion(canvas, false);
+    console.warn('Using the CPU sampler', error);
+    render = makeMotion(surface, false);
 }
 
 if (params.has('wallpaper')) document.body.classList.add('wallpaper');
@@ -147,10 +130,8 @@ function selectScene(index) {
     document.body.classList.toggle('monochrome', index === 11);
     $('#collection').textContent = collections[collectionIndex(index)].toUpperCase();
     $('#preview-count').textContent = 'SCENE ' + sceneNumber(index) + ' / ' + formatNumber(scenes.length);
-    $('#art-num').textContent = 'NO. ' + sceneNumber(index);
-    $('#art-title').textContent = $('#footer-title').textContent = scene.name;
-    $('#art-kicker').textContent = scene.kicker;
-    $('#art-subtitle').textContent = scene.subtitle;
+    $('#footer-title').textContent = scene.name;
+    surface.setAttribute('aria-label', scene.name + ' animated ASCII wallpaper');
     $('#footer-desc').textContent = scene.desc;
     $('#scene-icon').textContent = scene.icon;
 }
@@ -177,21 +158,16 @@ $('#apply').onclick = async () => {
 function tick(timestamp) {
     const image = images[selected];
     if ((!image || (image.complete && image.naturalWidth)) && (!paused || dirty)) {
-        if (!paused && lastTime !== null) {
-            const delta = Math.min(.05, (timestamp - lastTime) / 1000);
-            sceneTime = (sceneTime + delta) % sceneLoopSeconds[selected];
-        }
-        const rect = canvas.getBoundingClientRect();
-        const scale = Math.min(devicePixelRatio || 1, 2, 2560 / rect.width, 1440 / rect.height);
-        const width = Math.max(1, Math.round(rect.width * scale));
-        const height = Math.max(1, Math.round(rect.height * scale));
-        if (canvas.width !== width) canvas.width = width;
-        if (canvas.height !== height) canvas.height = height;
-        render(image, selected, sceneTime);
+        const {width,height} = surface.getBoundingClientRect();
+        render(image,selected,sceneTime,width,height);
         dirty = false;
+    }
+    if (!paused && lastTime !== null) {
+        const delta = Math.min(.05,(timestamp-lastTime)/1000);
+        sceneTime = (sceneTime+delta)%sceneLoopSeconds[selected];
     }
     lastTime = timestamp;
     requestAnimationFrame(tick);
 }
-new ResizeObserver(() => { dirty = true; }).observe(canvas);
+new ResizeObserver(() => { dirty = true; }).observe(surface);
 requestAnimationFrame(tick);

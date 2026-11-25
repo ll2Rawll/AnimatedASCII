@@ -45,10 +45,7 @@ const backdropFragment = `
 precision highp float;
 ${loopClock}
 uniform sampler2D plate;
-uniform sampler2D glyphs;
 uniform vec2 view;
-uniform vec2 grid;
-uniform float glyphCount;
 uniform float time;
 uniform int scene;
 varying vec2 uv;
@@ -155,51 +152,12 @@ vec3 northernLights(vec2 p, vec3 base) {
 }
 void main() {
     vec2 drift = vec2(.007*sin(loopAngle(time,.30)), .004*sin(loopAngle(time,.24)+.8));
-    vec2 cell = floor(uv * grid);
-    vec2 center = (cell+.5)/grid;
-    vec2 p = (center-.5)*view*.965 + .5 + drift;
+    vec2 p = (uv-.5)*view*.965 + .5 + drift;
     vec3 color = samplePlate(p);
     if (scene == 0) color = fireside(p, color);
     else if (scene == 1) color = cabin(p, color);
     else color = northernLights(p, color);
-    color = clamp(color, 0., 1.);
-    float light = dot(color, vec3(.25,.64,.11));
-    float tone = pow(clamp((light-.012)*1.18,0.,1.), .69);
-    float jitter = hash(cell) - .5;
-    float index = clamp(floor(tone * glyphCount + jitter*.92),0.,glyphCount-1.);
-    vec2 letter = fract(uv*grid);
-    float ink = texture2D(glyphs, vec2((index+letter.x)/glyphCount,letter.y)).a;
-
-    // Keep a hint of ambient light between characters, and let the letters carry the color.
-    vec3 paper = vec3(.015,.023,.035) + color * (.135 + tone*.13);
-    vec3 raised = pow(color,vec3(.74)) * 1.7;
-    vec3 textColor = raised / max(1., max(raised.r, max(raised.g, raised.b)));
-    gl_FragColor = vec4(mix(paper,textColor,ink),1.);
-}`;
-
-const particleVertex = `
-attribute vec3 point;
-attribute vec4 tint;
-varying vec4 color;
-void main() {
-    gl_Position = vec4(point.x*2.0-1.0, 1.0-point.y*2.0,0.0,1.0);
-    gl_PointSize = point.z;
-    color = tint;
-}`;
-
-const particleFragment = `
-precision mediump float;
-varying vec4 color;
-uniform sampler2D glyphs;
-uniform float glyphCount;
-void main() {
-    vec2 p = gl_PointCoord;
-    float index = color.r > .95 ? 2. : 1.;
-    if (color.r < .95 && color.a < .29) index = 6.;
-    if (color.b < .2 && color.a > .55) index = 6.;
-    float ink = texture2D(glyphs,vec2((index+p.x)/glyphCount,p.y)).a;
-    float halo = exp(-dot(p-.5,p-.5)*15.)*.10;
-    gl_FragColor = vec4(color.rgb,color.a*(ink + halo));
+    gl_FragColor = vec4(clamp(color,0.,1.),1.);
 }`;
 
 function makeProgram(gl, vertex, fragment) {
@@ -240,201 +198,108 @@ function fract(n) {
 
 const glyphRamp = ' .,:;i+loxX%#&@';
 
-function glyphAtlas() {
-    const atlas = document.createElement('canvas');
-    atlas.width = glyphRamp.length * 24;
-    atlas.height = 32;
-    const pen = atlas.getContext('2d');
-    pen.font = '30px monospace';
-    pen.textAlign = 'center';
-    pen.textBaseline = 'middle';
-    pen.fillStyle = 'white';
-    for (let i = 0; i < glyphRamp.length; i++) pen.fillText(glyphRamp[i], i*24+12, 16);
-    return atlas;
+// Only the character grid is sampled. The canvas never appears in the wallpaper.
+function drawField(gl, mesh, position) {
+    gl.bindBuffer(gl.ARRAY_BUFFER,mesh);
+    gl.enableVertexAttribArray(position);
+    gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+    gl.disableVertexAttribArray(position);
 }
 
-function makeMotion(canvas, preferGpu = true) {
-    const gl = preferGpu && canvas.getContext('webgl', { alpha: false, antialias: false, preserveDrawingBuffer: true });
-    const backdrop = gl && makeProgram(gl, backdropVertex, backdropFragment);
-    const pointsProgram = gl && makeProgram(gl, particleVertex, particleFragment);
+function makeLightSampler(useGpu) {
+    const sample = document.createElement('canvas');
+    const gl = useGpu && sample.getContext('webgl', {alpha:false, antialias:false});
+    const context = !gl && sample.getContext('2d', {willReadFrequently:true});
     const mesh = gl && gl.createBuffer();
-    const points = gl && gl.createBuffer();
-    const texture = gl && gl.createTexture();
-    const glyphTexture = gl && gl.createTexture();
-    const particleGlyphs = gl && gl.getUniformLocation(pointsProgram, 'glyphs');
-    const particleGlyphCount = gl && gl.getUniformLocation(pointsProgram, 'glyphCount');
-    const viewUniforms = gl && Object.fromEntries(['plate', 'glyphs', 'glyphCount', 'scene', 'time', 'view', 'grid', 'loopPeriod'].map(
-        (name) => [name, gl.getUniformLocation(backdrop, name)]));
-    const meshPosition = gl && gl.getAttribLocation(backdrop, 'position');
-    const pointPosition = gl && gl.getAttribLocation(pointsProgram, 'point');
-    const pointTint = gl && gl.getAttribLocation(pointsProgram, 'tint');
-    const snow = makeSnow(378);
-    const sparks = makeSnow(48);
-    const particles = new Float32Array((snow.length + sparks.length + 16) * 7);
-    const ctx = !gl && canvas.getContext('2d');
-    const sample = !gl && document.createElement('canvas');
-    const sampler = !gl && sample.getContext('2d', {willReadFrequently: true});
-    const procedural = gl && makeProceduralRenderer(gl, mesh);
-    let activePlate;
+    const plate = gl && gl.createTexture();
+    const backdrop = gl && makeProgram(gl,backdropVertex,backdropFragment);
+    const uniforms = gl && Object.fromEntries(['scene','time','view','loopPeriod','plate'].map(
+        name => [name,gl.getUniformLocation(backdrop,name)]));
+    const position = gl && gl.getAttribLocation(backdrop,'position');
+    const procedural = gl && makeProceduralRenderer(gl,mesh);
+    let pixels, activeImage;
 
     if (gl) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, mesh);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, glyphTexture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, glyphAtlas());
-        for (const [setting, value] of [
-            [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE],
-            [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]
-        ]) gl.texParameteri(gl.TEXTURE_2D, setting, value);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.bindBuffer(gl.ARRAY_BUFFER,mesh);
+        gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1, 1,-1, -1,1, 1,1]),gl.STATIC_DRAW);
+        gl.bindTexture(gl.TEXTURE_2D,plate);
+        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
     }
 
-    function animate(image, scene, elapsed) {
+    function getLights(image, frame) {
+        const {scene,time,period,aspect,columns,rows,viewX,viewY,driftX,driftY} = frame;
+        if (!pixels || sample.width !== columns || sample.height !== rows) {
+            sample.width = columns;
+            sample.height = rows;
+            pixels = new Uint8Array(columns*rows*4);
+        }
+        if (gl) {
+            gl.viewport(0,0,columns,rows);
+            if (!image) {
+                procedural(scene-3,time,period,aspect);
+            } else {
+                gl.useProgram(backdrop);
+                gl.bindTexture(gl.TEXTURE_2D,plate);
+                if (activeImage !== image) {
+                    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);
+                    activeImage = image;
+                }
+                gl.uniform1i(uniforms.plate,0);
+                gl.uniform1i(uniforms.scene,scene);
+                gl.uniform1f(uniforms.time,time);
+                gl.uniform1f(uniforms.loopPeriod,period);
+                gl.uniform2f(uniforms.view,viewX,viewY);
+                drawField(gl,mesh,position);
+            }
+            gl.readPixels(0,0,columns,rows,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+            return pixels;
+        }
+
+        if (image) {
+            const w = image.naturalWidth, h = image.naturalHeight;
+            context.drawImage(image,(1-viewX*.965)/2*w+driftX*w,(1-viewY*.965)/2*h+driftY*h,
+                w*viewX*.965,h*viewY*.965,0,0,columns,rows);
+        } else {
+            const draw = scene >= 12 ? drawY2kExtraFallback
+                : scene >= 9 ? drawKineticFallback
+                : scene >= 6 ? drawY2kFallback : drawNeonFallback;
+            draw(context,scene%3,time,columns,rows,period);
+        }
+        return context.getImageData(0,0,columns,rows).data;
+    }
+    return {getLights, bottomUp: Boolean(gl)};
+}
+
+function makeMotion(surface, useGpu = true) {
+    const {getLights,bottomUp} = makeLightSampler(useGpu);
+    const write = makeAsciiText(surface);
+    const weather = makeTextWeather();
+    let cells, columns, rows;
+    return (image,scene,elapsed,width,height) => {
+        if (width < 1 || height < 1) return;
+        const nextColumns = Math.min(264,Math.ceil(width/Math.max(4,height/117)));
+        const nextRows = Math.min(86,Math.ceil(height/6));
+        if (columns !== nextColumns || rows !== nextRows) {
+            columns = nextColumns;
+            rows = nextRows;
+            cells = new Uint16Array(columns*rows);
+        }
         const period = sceneLoopSeconds[scene];
         const time = elapsed % period;
-        const width = canvas.width, height = canvas.height;
-        const cellWidth = Math.max(5, Math.round(height/126));
-        const columns = Math.ceil(width/cellWidth), rows = Math.ceil(height/(cellWidth*1.45));
-        const abstract = !image;
-        if (gl && abstract) {
-            procedural(scene - 3, time, period, width, height, columns, rows);
-            return;
-        }
-        const ratio = abstract ? 1 : (width / height) / (image.naturalWidth / image.naturalHeight);
-        const viewX = Math.min(1, ratio), viewY = Math.min(1, 1 / ratio);
-        const driftX = .007 * Math.sin(loopAngle(time,.30,period));
-        const driftY = .004 * Math.sin(loopAngle(time,.24,period)+.8);
-        if (gl) {
-            gl.viewport(0, 0, width, height);
-            gl.useProgram(backdrop);
-            gl.bindTexture(gl.TEXTURE_2D, texture);
-            if (activePlate !== image) {
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-                activePlate = image;
-            }
-            gl.uniform1i(viewUniforms.plate, 0);
-            gl.uniform1i(viewUniforms.glyphs, 1);
-            gl.uniform1f(viewUniforms.glyphCount, glyphRamp.length);
-            gl.uniform2f(viewUniforms.grid, columns, rows);
-            gl.uniform1i(viewUniforms.scene, scene);
-            gl.uniform1f(viewUniforms.time, time);
-            gl.uniform1f(viewUniforms.loopPeriod, period);
-            gl.uniform2f(viewUniforms.view, viewX, viewY);
-            gl.bindBuffer(gl.ARRAY_BUFFER, mesh);
-            gl.enableVertexAttribArray(meshPosition);
-            gl.vertexAttribPointer(meshPosition, 2, gl.FLOAT, false, 0, 0);
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        } else {
-            if (sample.width !== columns || sample.height !== rows) {
-                sample.width = columns;
-                sample.height = rows;
-            }
-            if (scene >= 12) {
-                drawY2kExtraFallback(sampler, scene - 12, time, columns, rows, period);
-            } else if (scene >= 9) {
-                drawKineticFallback(sampler, scene - 9, time, columns, rows, period);
-            } else if (scene >= 6) {
-                drawY2kFallback(sampler, scene - 6, time, columns, rows, period);
-            } else if (abstract) {
-                drawNeonFallback(sampler, scene - 3, time, columns, rows, period);
-            } else {
-                const w = image.naturalWidth, h = image.naturalHeight;
-                sampler.drawImage(image, (1-viewX*.965)/2*w+driftX*w, (1-viewY*.965)/2*h+driftY*h,
-                    w*viewX*.965, h*viewY*.965, 0, 0, columns, rows);
-            }
-            ctx.fillStyle = scene === 11 ? '#000' : abstract ? '#050414' : '#0a1018';
-            ctx.fillRect(0, 0, width, height);
-            ctx.font = (height/rows)*.94 + 'px monospace';
-            ctx.textBaseline = 'middle';
-            const data = sampler.getImageData(0, 0, columns, rows).data;
-            for (let i = 0; i < data.length; i += 4) {
-                const value = (data[i]*.25 + data[i+1]*.64 + data[i+2]*.11)/255;
-                const shade = Math.min(glyphRamp.length-1, Math.floor(Math.pow(value*1.15,.69)*glyphRamp.length));
-                if (shade < 1) continue;
-                const rgb = [data[i],data[i+1],data[i+2]].map(channel => Math.round(Math.min(255,Math.pow(channel/255,.62)*411)));
-                ctx.fillStyle = 'rgb(' + rgb.join(',') + ')';
-                ctx.fillText(glyphRamp[shade], (i/4%columns)*width/columns, (Math.floor(i/4/columns)+.5)*height/rows);
-            }
-        }
-
-        if (abstract) return;
-
-        const scale = height / 1080;
-        const count = scene === 2 ? 302 : snow.length;
-        let offset = 0;
-        for (let i = 0; i < count; i++) {
-            const {x, y, speed, size, phase, depth} = scene === 2 && i >= 254 ? snow[i+76] : snow[i];
-            const fall = [.028, .075, .149][depth] * (.64+.80*speed);
-            const travel = loopTurns(time,fall,period);
-            const bend = Math.sin(loopAngle(time,.69+speed,period)+phase)*(.012+depth*.008);
-            const px = fract(x + loopTurns(time,fall*.42,period) + bend + 1.01) * 1.06 - .03;
-            const py = fract(y + travel) * 1.12 - .06;
-            const diameter = Math.max(3, [6.5, 10, 18][depth]*(.62+size)*scale);
-            const opacity = [.46,.55,.34][depth]*(.61+size*.39) * (scene === 2 ? .78 : 1);
-            particles.set([px, py, diameter, .83, .90, 1, opacity], offset);
-            offset += 7;
-        }
-        if (scene === 0) {
-            for (const {x, y, speed, size, phase} of sparks) {
-                const age = fract(loopTurns(time,.21+speed*.27,period)+y);
-                const u = .554 + (x-.5)*.079 + age*(.045+speed*.10) +
-                    Math.sin(age*10+phase)*age*.026;
-                const v = .755 - age*(.16+size*.15);
-                const px = (u-.5-driftX)/(viewX*.965)+.5;
-                const py = (v-.5-driftY)/(viewY*.965)+.5;
-                const opacity = Math.sin(Math.PI*age)**.56 * (1-age) * (.5+speed*.5);
-                particles.set([px, py, Math.max(3, scale*(5.1+size*5.8)), 1, .39+size*.36, .12, opacity], offset);
-                offset += 7;
-            }
-        }
-
-        // A short trail of tiny characters crosses the dark sky every so often.
-        if (scene === 2) {
-            const flight = (time + period - 5) % period;
-            for (let i = 0; i < 16; i++) {
-                const age = flight - i*.025;
-                if (age < 0 || age > 1.14) continue;
-                const u = .79 - .20*age;
-                const v = .095 + .14*age;
-                const px = (u-.5-driftX)/(viewX*.965)+.5;
-                const py = (v-.5-driftY)/(viewY*.965)+.5;
-                const envelope = Math.sin(Math.PI*age/1.14);
-                particles.set([px, py, Math.max(5, 13-i*.36)*scale,
-                    .93, .96, 1, envelope*(.94-i*.048)], offset);
-                offset += 7;
-            }
-        }
-
-        if (gl) {
-            gl.useProgram(pointsProgram);
-            gl.uniform1i(particleGlyphs, 1);
-            gl.uniform1f(particleGlyphCount, glyphRamp.length);
-            gl.enable(gl.BLEND);
-            gl.bindBuffer(gl.ARRAY_BUFFER, points);
-            gl.bufferData(gl.ARRAY_BUFFER, particles.subarray(0, offset), gl.DYNAMIC_DRAW);
-            gl.enableVertexAttribArray(pointPosition);
-            gl.vertexAttribPointer(pointPosition, 3, gl.FLOAT, false, 28, 0);
-            gl.enableVertexAttribArray(pointTint);
-            gl.vertexAttribPointer(pointTint, 4, gl.FLOAT, false, 28, 12);
-            gl.drawArrays(gl.POINTS, 0, offset / 7);
-            gl.disableVertexAttribArray(pointPosition);
-            gl.disableVertexAttribArray(pointTint);
-            gl.disable(gl.BLEND);
-        } else {
-            for (let i = 0; i < offset; i += 7) {
-                const [x,y,size,r,g,b,a] = particles.subarray(i, i+7);
-                ctx.fillStyle = `rgba(${r*255},${g*255},${b*255},${a})`;
-                ctx.font = Math.max(6,size) + 'px monospace';
-                ctx.fillText(r > .95 ? ',' : '.', x*width, y*height);
-            }
-        }
-    }
-    return animate;
+        const aspect = width/height;
+        const ratio = image ? aspect/(image.naturalWidth/image.naturalHeight) : 1;
+        const frame = {
+            scene,time,period,aspect,columns,rows,
+            viewX: Math.min(1,ratio), viewY: Math.min(1,1/ratio),
+            driftX: .007*Math.sin(loopAngle(time,.30,period)),
+            driftY: .004*Math.sin(loopAngle(time,.24,period)+.8)
+        };
+        gradeAscii(getLights(image,frame),bottomUp,frame,cells);
+        if (image) weather(cells,frame);
+        write(cells,columns,rows,width,height);
+    };
 }
