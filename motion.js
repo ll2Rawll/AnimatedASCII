@@ -234,7 +234,7 @@ function makeMotion(canvas, preferGpu = true) {
     const ctx = !gl && canvas.getContext('2d');
     const sample = !gl && document.createElement('canvas');
     const sampler = !gl && sample.getContext('2d', {willReadFrequently: true});
-    const neon = gl && makeNeonRenderer(gl, mesh);
+    const procedural = gl && makeProceduralRenderer(gl, mesh);
     let activePlate;
 
     if (gl) {
@@ -262,7 +262,7 @@ function makeMotion(canvas, preferGpu = true) {
         const columns = Math.ceil(width/cellWidth), rows = Math.ceil(height/(cellWidth*1.45));
         const abstract = !image;
         if (gl && abstract) {
-            neon(scene - 3, time, width, height, columns, rows);
+            procedural(scene - 3, time, width, height, columns, rows);
             return;
         }
         const ratio = abstract ? 1 : (width / height) / (image.naturalWidth / image.naturalHeight);
@@ -292,7 +292,9 @@ function makeMotion(canvas, preferGpu = true) {
                 sample.width = columns;
                 sample.height = rows;
             }
-            if (abstract) {
+            if (scene >= 6) {
+                drawY2kFallback(sampler, scene - 6, time, columns, rows);
+            } else if (abstract) {
                 drawNeonFallback(sampler, scene - 3, time, columns, rows);
             } else {
                 const w = image.naturalWidth, h = image.naturalHeight;

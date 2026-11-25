@@ -17,3 +17,9 @@
 .neon .brand-icon,.neon .primary{background:#e3baff;color:#241431}
 .neon .primary{border-color:#e3baff}
 .neon h1 i{color:#e3baff}
+
+.y2k .brand-icon,.y2k .primary{background:#ffc3e8;color:#34152e}
+.y2k .primary{border-color:#ffc3e8}
+.y2k h1 i,.y2k .art-caption div,.y2k .scene-info>span{color:#ffc3e8}
+.y2k .scene-btn.active{background:#37203a;border-color:#6e4b68}
+.y2k .scene-btn.active .arrow{color:#ffc3e8}

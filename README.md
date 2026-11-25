@@ -2,17 +2,30 @@
 
 # AnimatedASCII
 
-**Six live wallpapers for Windows, drawn in ASCII.**
+**Nine live wallpapers for Windows, drawn in ASCII.**
 
-<img src="docs/neon-ascii.webp" alt="Animated preview of Event Horizon, Prism Engine, and Liquid Signal" width="672">
+<img src="docs/y2k-ascii.webp" alt="Animated preview of Chrome Bloom, Dial-Up Dream, and Hyperlink Highway" width="672">
 
 </div>
+
+| Y2K | What moves |
+| :--- | :--- |
+| **Chrome Bloom** | A liquid chrome star tumbles through an orbit of pearls and pink glints. |
+| **Dial-Up Dream** | A translucent aqua terminal floats through rising bubbles while its waveform and LEDs react. |
+| **Hyperlink Highway** | Neon gates sweep past a chrome racer against a striped sunset. |
+
+<details>
+<summary>Neon abstract collection</summary>
+
+<img src="docs/neon-ascii.webp" alt="Animated preview of the three neon abstract wallpapers" width="672">
 
 | Neon abstract | What moves |
 | :--- | :--- |
 | **Event Horizon** | Gold and ultraviolet light curl around a dark core, with bursts of particles at the poles. |
 | **Prism Engine** | Cyan, violet, and lime rings tumble in 3D around a pulsing crystal. |
 | **Liquid Signal** | Teal and hot pink ribbons fold, cross, and shimmer. |
+
+</details>
 
 <details>
 <summary>Christmas collection</summary>

@@ -1,5 +1,5 @@
 // Draw the procedural effects once per character cell, then typeset them at display resolution.
-const neonField = `
+const fieldPrelude = `
 precision highp float;
 
 uniform float time;
@@ -39,6 +39,9 @@ float stars(vec2 p, float t) {
     return step(.984,seed)*(1.-smoothstep(.16,.57,length(fract(mosaic)-.5)))*wink;
 }
 
+`;
+
+const neonScenes = `
 vec3 horizon(vec2 p, float t) {
     vec2 q = rotate(.24+.095*sin(t*.36))*p;
     q.x += .025*sin(t*.7);
@@ -218,14 +221,17 @@ vec3 liquid(vec2 p, float t) {
     return color;
 }
 
+`;
+
+const fieldMain = (first, second, last) => `
 void main() {
     vec2 p = (vec2(uv.x,1.-uv.y)-.5)*2.*vec2(aspect,1.);
     // Keep the focal point in view on tall or nearly square displays.
     p *= min(1.3,max(1.,.95/aspect));
     vec3 light;
-    if (design == 0) light = horizon(p,time);
-    else if (design == 1) light = prism(p,time);
-    else light = liquid(p,time);
+    if (design == 0) light = ${first}(p,time);
+    else if (design == 1) light = ${second}(p,time);
+    else light = ${last}(p,time);
     float vignette = 1.-.32*smoothstep(.58,1.45,length(p*.8));
     light *= vignette;
     float peak = max(light.r,max(light.g,light.b));
@@ -262,13 +268,18 @@ void main() {
 }
 `;
 
-function makeNeonRenderer(gl, mesh) {
-    const field = makeProgram(gl, backdropVertex, neonField);
+function makeProceduralRenderer(gl, mesh) {
+    const lightingPrograms = [
+        neonScenes + fieldMain('horizon','prism','liquid'),
+        y2kScenes + fieldMain('chromeBloom','dialUp','highway')
+    ].map(source => {
+        const program = makeProgram(gl, backdropVertex, fieldPrelude + source);
+        const uniforms = Object.fromEntries(['time','aspect','design'].map(
+            name => [name, gl.getUniformLocation(program, name)]));
+        return {program, uniforms, position: gl.getAttribLocation(program, 'position')};
+    });
     const type = makeProgram(gl, backdropVertex, neonType);
-    const fieldPosition = gl.getAttribLocation(field, 'position');
     const typePosition = gl.getAttribLocation(type, 'position');
-    const fieldUniforms = Object.fromEntries(['time','aspect','design'].map(
-        name => [name, gl.getUniformLocation(field, name)]));
     const typeUniforms = Object.fromEntries(['field','glyphs','grid','glyphCount','time'].map(
         name => [name, gl.getUniformLocation(type, name)]));
     const framebuffer = gl.createFramebuffer();
@@ -303,11 +314,12 @@ function makeNeonRenderer(gl, mesh) {
         }
 
         gl.viewport(0,0,columns,rows);
-        gl.useProgram(field);
-        gl.uniform1f(fieldUniforms.time,time);
-        gl.uniform1f(fieldUniforms.aspect,width/height);
-        gl.uniform1i(fieldUniforms.design,design);
-        draw(fieldPosition);
+        const light = lightingPrograms[Math.floor(design/3)];
+        gl.useProgram(light.program);
+        gl.uniform1f(light.uniforms.time,time);
+        gl.uniform1f(light.uniforms.aspect,width/height);
+        gl.uniform1i(light.uniforms.design,design%3);
+        draw(light.position);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER,null);
         gl.viewport(0,0,width,height);

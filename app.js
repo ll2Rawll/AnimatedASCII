@@ -28,6 +28,21 @@ const scenes = [
         name: 'Liquid Signal', icon: '≈',
         desc: 'Iridescent ribbons in teal and hot pink',
         kicker: 'NEON ABSTRACT', subtitle: 'Waves fold into one another and split into threads.'
+    },
+    {
+        name: 'Chrome Bloom', icon: '✦',
+        desc: 'Liquid silver and candy pink',
+        kicker: 'Y2K', subtitle: 'A chrome star turns through an orbit of pearls.'
+    },
+    {
+        name: 'Dial-Up Dream', icon: '◍',
+        desc: 'A translucent aqua terminal',
+        kicker: 'Y2K', subtitle: 'A live waveform flickers inside a floating gadget.'
+    },
+    {
+        name: 'Hyperlink Highway', icon: '»',
+        desc: 'An arcade racer at sunset',
+        kicker: 'Y2K', subtitle: 'Chase the horizon past a rush of neon gates.'
     }
 ];
 
@@ -62,7 +77,8 @@ const images = scenes.map(({image, name}) => {
     return plate;
 });
 const formatNumber = n => String(n).padStart(2,'0');
-const sceneLists = ['Christmas', 'Neon abstract'].map(label => {
+const collections = ['Christmas', 'Neon abstract', 'Y2K'];
+const sceneLists = collections.map(label => {
     const group = document.createElement('div');
     group.className = 'scene-group';
     group.setAttribute('role','group');
@@ -81,7 +97,7 @@ const sceneButtons = scenes.map(({name}, index) => {
         '<span class="name"></span><span class="arrow" aria-hidden="true"></span>';
     button.querySelector('.name').textContent = name;
     button.onclick = () => selectScene(index);
-    sceneLists[index < 3 ? 0 : 1].append(button);
+    sceneLists[Math.floor(index/3)].append(button);
     return button;
 });
 
@@ -97,7 +113,8 @@ function selectScene(index) {
     });
     const abstract = !scene.image;
     document.body.classList.toggle('neon',abstract);
-    $('#collection').textContent = abstract ? 'NEON ABSTRACT' : 'CHRISTMAS';
+    document.body.classList.toggle('y2k', index >= 6);
+    $('#collection').textContent = collections[Math.floor(index/3)].toUpperCase();
     $('#preview-count').textContent = 'SCENE ' + formatNumber(index + 1) + ' / ' + formatNumber(scenes.length);
     $('#art-num').textContent = 'NO. ' + formatNumber(index + 1);
     $('#art-title').textContent = $('#footer-title').textContent = scene.name;
