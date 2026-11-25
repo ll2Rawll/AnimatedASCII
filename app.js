@@ -1,0 +1,114 @@
+const scenes = [
+    {
+        name: 'Fireside Forest', image: 'forest.webp', icon: '✳',
+        desc: 'A campfire beneath the winter moon',
+        kicker: 'A MOMENT IN THE WOODS', subtitle: 'Snow falls over a moonlit clearing.'
+    },
+    {
+        name: 'Christmas Eve', image: 'cabin.webp', icon: '⌂',
+        desc: 'A cabin beside a flowing creek',
+        kicker: 'SOMEWHERE IN THE SNOW', subtitle: 'The cabin lights spill across the water.'
+    },
+    {
+        name: 'Northern Lights', image: 'aurora.webp', icon: '✧',
+        desc: 'A Christmas tree by an Arctic lake',
+        kicker: 'A SKY FULL OF WONDER', subtitle: 'The aurora drifts across a still winter sky.'
+    }
+];
+
+const $ = selector => document.querySelector(selector);
+const params = new URLSearchParams(location.search);
+const startScene = Number(params.get('scene'));
+let selected = Number.isInteger(startScene) && scenes[startScene] ? startScene : 0;
+let paused = false;
+let lastTime = null;
+let sceneTime = 0;
+let dirty = true;
+let canvas = $('#scene');
+let render;
+try {
+    render = makeMotion(canvas);
+} catch (error) {
+    console.warn('Using the canvas renderer', error);
+    const fallback = canvas.cloneNode();
+    canvas.replaceWith(fallback);
+    canvas = fallback;
+    render = makeMotion(canvas, false);
+}
+
+if (params.has('wallpaper')) document.body.classList.add('wallpaper');
+
+const images = scenes.map(({image, name}) => {
+    const plate = new Image();
+    plate.onload = () => { dirty = true; };
+    plate.onerror = () => { $('#message').textContent = 'Could not load ' + name + '.'; };
+    plate.src = 'assets/' + image;
+    return plate;
+});
+const sceneButtons = scenes.map(({name}, index) => {
+    const button = document.createElement('button');
+    button.className = 'scene-btn';
+    button.innerHTML = '<span class="num">0' + (index + 1) + '</span>' +
+        '<span class="name"></span><span class="arrow" aria-hidden="true"></span>';
+    button.querySelector('.name').textContent = name;
+    button.onclick = () => selectScene(index);
+    $('#scenes').append(button);
+    return button;
+});
+
+function selectScene(index) {
+    selected = index;
+    sceneTime = 0;
+    dirty = true;
+    const scene = scenes[index];
+    sceneButtons.forEach((button, i) => {
+        button.classList.toggle('active', i === index);
+        button.setAttribute('aria-pressed', String(i === index));
+        button.querySelector('.arrow').textContent = i === index ? '↗' : '';
+    });
+    $('#preview-count').textContent = 'SCENE 0' + (index + 1) + ' / 03';
+    $('#art-num').textContent = 'NO. 0' + (index + 1);
+    $('#art-title').textContent = $('#footer-title').textContent = scene.name;
+    $('#art-kicker').textContent = scene.kicker;
+    $('#art-subtitle').textContent = scene.subtitle;
+    $('#footer-desc').textContent = scene.desc;
+    $('#scene-icon').textContent = scene.icon;
+}
+selectScene(selected);
+
+$('#pause').onclick = () => {
+    paused = !paused;
+    $('#pause').textContent = paused ? '▶  Play' : 'Ⅱ  Pause';
+};
+$('#fullscreen').onclick = async () => {
+    try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await $('.art').requestFullscreen();
+    } catch (error) {
+        $('#message').textContent = 'Full screen is unavailable.';
+    }
+};
+$('#apply').onclick = async () => {
+    $('#message').textContent = window.winter
+        ? await window.winter.apply(selected)
+        : 'Open Winter ASCII on Windows to set a live wallpaper.';
+};
+
+function tick(timestamp) {
+    const image = images[selected];
+    if (image.complete && image.naturalWidth && (!paused || dirty)) {
+        if (!paused && lastTime !== null) sceneTime += Math.min(.05, (timestamp - lastTime) / 1000);
+        const rect = canvas.getBoundingClientRect();
+        const scale = Math.min(devicePixelRatio || 1, 2, 2560 / rect.width, 1440 / rect.height);
+        const width = Math.max(1, Math.round(rect.width * scale));
+        const height = Math.max(1, Math.round(rect.height * scale));
+        if (canvas.width !== width) canvas.width = width;
+        if (canvas.height !== height) canvas.height = height;
+        render(image, selected, sceneTime);
+        dirty = false;
+    }
+    lastTime = timestamp;
+    requestAnimationFrame(tick);
+}
+new ResizeObserver(() => { dirty = true; }).observe(canvas);
+requestAnimationFrame(tick);
