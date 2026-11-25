@@ -1,7 +1,7 @@
 {
   "name": "winter-ascii",
-  "version": "2.0.0",
-  "description": "Three animated Christmas wallpapers rendered in ASCII",
+  "version": "2.1.0",
+  "description": "Live Christmas and neon abstract wallpapers drawn in ASCII",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -15,7 +15,7 @@
   },
   "build": {
     "appId": "com.winterascii.app",
-    "productName": "Winter ASCII",
+    "productName": "AnimatedASCII",
     "win": {
       "target": "nsis"
     },
@@ -27,6 +27,7 @@
       "wallpaper.ps1",
       "preload.js",
       "motion.js",
+      "abstract.js",
       "assets/*.webp"
     ],
     "asarUnpack": [

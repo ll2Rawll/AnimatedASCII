@@ -13,6 +13,21 @@ const scenes = [
         name: 'Northern Lights', image: 'aurora.webp', icon: '✧',
         desc: 'A Christmas tree by an Arctic lake',
         kicker: 'A SKY FULL OF WONDER', subtitle: 'The aurora drifts across a still winter sky.'
+    },
+    {
+        name: 'Event Horizon', icon: '◉',
+        desc: 'An accretion disk of gold, pink, and ultraviolet',
+        kicker: 'NEON ABSTRACT', subtitle: 'Rings of light bend around a dark center.'
+    },
+    {
+        name: 'Prism Engine', icon: '◇',
+        desc: 'Interlocking rings in cyan, violet, and lime',
+        kicker: 'NEON ABSTRACT', subtitle: 'Energy races around a rotating crystal core.'
+    },
+    {
+        name: 'Liquid Signal', icon: '≈',
+        desc: 'Iridescent ribbons in teal and hot pink',
+        kicker: 'NEON ABSTRACT', subtitle: 'Waves fold into one another and split into threads.'
     }
 ];
 
@@ -39,20 +54,34 @@ try {
 if (params.has('wallpaper')) document.body.classList.add('wallpaper');
 
 const images = scenes.map(({image, name}) => {
+    if (!image) return null;
     const plate = new Image();
     plate.onload = () => { dirty = true; };
     plate.onerror = () => { $('#message').textContent = 'Could not load ' + name + '.'; };
     plate.src = 'assets/' + image;
     return plate;
 });
+const formatNumber = n => String(n).padStart(2,'0');
+const sceneLists = ['Christmas', 'Neon abstract'].map(label => {
+    const group = document.createElement('div');
+    group.className = 'scene-group';
+    group.setAttribute('role','group');
+    group.setAttribute('aria-label',label);
+    const heading = document.createElement('div');
+    heading.className = 'group-label';
+    heading.textContent = label;
+    group.append(heading);
+    $('#scenes').append(group);
+    return group;
+});
 const sceneButtons = scenes.map(({name}, index) => {
     const button = document.createElement('button');
     button.className = 'scene-btn';
-    button.innerHTML = '<span class="num">0' + (index + 1) + '</span>' +
+    button.innerHTML = '<span class="num">' + formatNumber(index + 1) + '</span>' +
         '<span class="name"></span><span class="arrow" aria-hidden="true"></span>';
     button.querySelector('.name').textContent = name;
     button.onclick = () => selectScene(index);
-    $('#scenes').append(button);
+    sceneLists[index < 3 ? 0 : 1].append(button);
     return button;
 });
 
@@ -66,8 +95,11 @@ function selectScene(index) {
         button.setAttribute('aria-pressed', String(i === index));
         button.querySelector('.arrow').textContent = i === index ? '↗' : '';
     });
-    $('#preview-count').textContent = 'SCENE 0' + (index + 1) + ' / 03';
-    $('#art-num').textContent = 'NO. 0' + (index + 1);
+    const abstract = !scene.image;
+    document.body.classList.toggle('neon',abstract);
+    $('#collection').textContent = abstract ? 'NEON ABSTRACT' : 'CHRISTMAS';
+    $('#preview-count').textContent = 'SCENE ' + formatNumber(index + 1) + ' / ' + formatNumber(scenes.length);
+    $('#art-num').textContent = 'NO. ' + formatNumber(index + 1);
     $('#art-title').textContent = $('#footer-title').textContent = scene.name;
     $('#art-kicker').textContent = scene.kicker;
     $('#art-subtitle').textContent = scene.subtitle;
@@ -91,12 +123,12 @@ $('#fullscreen').onclick = async () => {
 $('#apply').onclick = async () => {
     $('#message').textContent = window.winter
         ? await window.winter.apply(selected)
-        : 'Open Winter ASCII on Windows to set a live wallpaper.';
+        : 'Open AnimatedASCII on Windows to set a live wallpaper.';
 };
 
 function tick(timestamp) {
     const image = images[selected];
-    if (image.complete && image.naturalWidth && (!paused || dirty)) {
+    if ((!image || (image.complete && image.naturalWidth)) && (!paused || dirty)) {
         if (!paused && lastTime !== null) sceneTime += Math.min(.05, (timestamp - lastTime) / 1000);
         const rect = canvas.getBoundingClientRect();
         const scale = Math.min(devicePixelRatio || 1, 2, 2560 / rect.width, 1440 / rect.height);

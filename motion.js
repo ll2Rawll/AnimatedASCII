@@ -234,6 +234,7 @@ function makeMotion(canvas, preferGpu = true) {
     const ctx = !gl && canvas.getContext('2d');
     const sample = !gl && document.createElement('canvas');
     const sampler = !gl && sample.getContext('2d', {willReadFrequently: true});
+    const neon = gl && makeNeonRenderer(gl, mesh);
     let activePlate;
 
     if (gl) {
@@ -259,7 +260,12 @@ function makeMotion(canvas, preferGpu = true) {
         const width = canvas.width, height = canvas.height;
         const cellWidth = Math.max(5, Math.round(height/126));
         const columns = Math.ceil(width/cellWidth), rows = Math.ceil(height/(cellWidth*1.45));
-        const ratio = (width / height) / (image.naturalWidth / image.naturalHeight);
+        const abstract = !image;
+        if (gl && abstract) {
+            neon(scene - 3, time, width, height, columns, rows);
+            return;
+        }
+        const ratio = abstract ? 1 : (width / height) / (image.naturalWidth / image.naturalHeight);
         const viewX = Math.min(1, ratio), viewY = Math.min(1, 1 / ratio);
         const driftX = .007 * Math.sin(time * .30), driftY = .004 * Math.sin(time * .24 + .8);
         if (gl) {
@@ -282,14 +288,18 @@ function makeMotion(canvas, preferGpu = true) {
             gl.vertexAttribPointer(meshPosition, 2, gl.FLOAT, false, 0, 0);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         } else {
-            const w = image.naturalWidth, h = image.naturalHeight;
             if (sample.width !== columns || sample.height !== rows) {
                 sample.width = columns;
                 sample.height = rows;
             }
-            sampler.drawImage(image, (1-viewX*.965)/2*w+driftX*w, (1-viewY*.965)/2*h+driftY*h,
-                w*viewX*.965, h*viewY*.965, 0, 0, columns, rows);
-            ctx.fillStyle = '#0a1018';
+            if (abstract) {
+                drawNeonFallback(sampler, scene - 3, time, columns, rows);
+            } else {
+                const w = image.naturalWidth, h = image.naturalHeight;
+                sampler.drawImage(image, (1-viewX*.965)/2*w+driftX*w, (1-viewY*.965)/2*h+driftY*h,
+                    w*viewX*.965, h*viewY*.965, 0, 0, columns, rows);
+            }
+            ctx.fillStyle = abstract ? '#050414' : '#0a1018';
             ctx.fillRect(0, 0, width, height);
             ctx.font = (height/rows)*.94 + 'px monospace';
             ctx.textBaseline = 'middle';
@@ -303,6 +313,8 @@ function makeMotion(canvas, preferGpu = true) {
                 ctx.fillText(glyphRamp[shade], (i/4%columns)*width/columns, (Math.floor(i/4/columns)+.5)*height/rows);
             }
         }
+
+        if (abstract) return;
 
         const scale = height / 1080;
         const count = scene === 2 ? 302 : snow.length;

@@ -3,3 +3,17 @@
 
 .art:fullscreen,body.wallpaper .art{width:100vw;height:100vh;min-height:0}
 .art:fullscreen .art-vignette,.art:fullscreen .art-top,.art:fullscreen .art-bottom,.art:fullscreen .art-caption,body.wallpaper .art-vignette{display:none}
+
+.scene-group{display:grid;gap:7px}
+.scene-group + .scene-group{margin-top:18px}
+.group-label{color:#9ba598;font:10px 'DM Mono',monospace;letter-spacing:.13em;text-transform:uppercase;padding:0 8px 3px}
+.neon .scene-btn.active{background:#231b36;border-color:#514169}
+.neon .scene-btn.active .arrow,.neon .art-caption div,.neon .scene-info>span{color:#e2b7ff}
+.neon .live-dot{background:#d794ff;box-shadow:0 0 9px #d794ff}
+.neon .art-vignette{background:linear-gradient(0deg,rgba(4,3,12,.8),transparent 30%)}
+.neon .art:fullscreen .art-vignette,.neon.wallpaper .art-vignette{display:none}
+@media(max-width:600px){nav{display:grid;gap:14px}.scene-group{grid-template-columns:repeat(3,minmax(0,1fr))}.group-label{grid-column:1/-1}.scene-group + .scene-group{margin-top:0}}
+
+.neon .brand-icon,.neon .primary{background:#e3baff;color:#241431}
+.neon .primary{border-color:#e3baff}
+.neon h1 i{color:#e3baff}
