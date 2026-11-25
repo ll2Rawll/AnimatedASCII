@@ -23,3 +23,14 @@
 .y2k h1 i,.y2k .art-caption div,.y2k .scene-info>span{color:#ffc3e8}
 .y2k .scene-btn.active{background:#37203a;border-color:#6e4b68}
 .y2k .scene-btn.active .arrow{color:#ffc3e8}
+
+.kinetic .brand-icon,.kinetic .primary{background:#aaf3f5;color:#143039}
+.kinetic .primary{border-color:#aaf3f5}
+.kinetic h1 i,.kinetic .art-caption div,.kinetic .scene-info>span{color:#aaf3f5}
+.kinetic .scene-btn.active{background:#18333b;border-color:#3b6b74}
+.kinetic .scene-btn.active .arrow{color:#aaf3f5}
+.monochrome .art{filter:grayscale(1)}
+.monochrome .brand-icon,.monochrome .primary{background:#eee;color:#141414}
+.monochrome .primary{border-color:#eee}
+.monochrome h1 i,.monochrome .art-caption div,.monochrome .scene-info>span,.monochrome .scene-btn.active .arrow{color:#eee}
+.monochrome .scene-btn.active{background:#232323;border-color:#5b5b5b}

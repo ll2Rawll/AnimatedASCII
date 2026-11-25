@@ -4,7 +4,7 @@ const {pathToFileURL}=require('url');
 const {execFile}=require('child_process');let main,wallpaper;
 const appUrl = 'winter://wallpaper/index.html';
 const publicFiles = new Set([
-    '/index.html', '/style.css', '/app.js', '/motion.js', '/abstract.js', '/y2k.js',
+    '/index.html', '/style.css', '/app.js', '/motion.js', '/abstract.js', '/y2k.js', '/kinetic.js',
     '/assets/forest.webp', '/assets/cabin.webp', '/assets/aurora.webp'
 ]);
 protocol.registerSchemesAsPrivileged([

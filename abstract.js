@@ -247,6 +247,7 @@ uniform sampler2D glyphs;
 uniform vec2 grid;
 uniform float glyphCount;
 uniform float time;
+uniform bool monochrome;
 varying vec2 uv;
 
 void main() {
@@ -264,6 +265,7 @@ void main() {
     vec3 textColor = clamp(light * (1.2 + 1.2*(1.-peak)),0.,1.);
     textColor = mix(textColor,vec3(.92,.97,1.),smoothstep(.85,1.,peak)*.42);
     vec3 color = mix(aura,textColor,ink);
+    if (monochrome) color = vec3(dot(color,vec3(.2126,.7152,.0722)));
     gl_FragColor = vec4(color,1.);
 }
 `;
@@ -271,7 +273,8 @@ void main() {
 function makeProceduralRenderer(gl, mesh) {
     const lightingPrograms = [
         neonScenes + fieldMain('horizon','prism','liquid'),
-        y2kScenes + fieldMain('chromeBloom','dialUp','highway')
+        y2kScenes + fieldMain('chromeBloom','dialUp','highway'),
+        kineticScenes + fieldMain('kaleidoDrive','bloomBackdrop','inkFold')
     ].map(source => {
         const program = makeProgram(gl, backdropVertex, fieldPrelude + source);
         const uniforms = Object.fromEntries(['time','aspect','design'].map(
@@ -280,8 +283,9 @@ function makeProceduralRenderer(gl, mesh) {
     });
     const type = makeProgram(gl, backdropVertex, neonType);
     const typePosition = gl.getAttribLocation(type, 'position');
-    const typeUniforms = Object.fromEntries(['field','glyphs','grid','glyphCount','time'].map(
+    const typeUniforms = Object.fromEntries(['field','glyphs','grid','glyphCount','time','monochrome'].map(
         name => [name, gl.getUniformLocation(type, name)]));
+    const paintBloom = makeBloomPainter(gl);
     const framebuffer = gl.createFramebuffer();
     const lighting = gl.createTexture();
     gl.activeTexture(gl.TEXTURE2);
@@ -320,6 +324,7 @@ function makeProceduralRenderer(gl, mesh) {
         gl.uniform1f(light.uniforms.aspect,width/height);
         gl.uniform1i(light.uniforms.design,design%3);
         draw(light.position);
+        if (design === 7) paintBloom(time,width/height);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER,null);
         gl.viewport(0,0,width,height);
@@ -329,6 +334,7 @@ function makeProceduralRenderer(gl, mesh) {
         gl.uniform2f(typeUniforms.grid,columns,rows);
         gl.uniform1f(typeUniforms.glyphCount,glyphRamp.length);
         gl.uniform1f(typeUniforms.time,time);
+        gl.uniform1i(typeUniforms.monochrome,design === 8 ? 1 : 0);
         draw(typePosition);
     };
 }

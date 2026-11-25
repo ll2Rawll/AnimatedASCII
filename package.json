@@ -1,7 +1,7 @@
 {
   "name": "winter-ascii",
-  "version": "2.2.0",
-  "description": "Live Christmas, neon abstract, and Y2K wallpapers drawn in ASCII",
+  "version": "2.3.0",
+  "description": "Live Christmas, neon, Y2K, and kinetic wallpapers drawn in ASCII",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -29,6 +29,7 @@
       "motion.js",
       "abstract.js",
       "y2k.js",
+      "kinetic.js",
       "assets/*.webp"
     ],
     "asarUnpack": [

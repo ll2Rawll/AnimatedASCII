@@ -292,7 +292,9 @@ function makeMotion(canvas, preferGpu = true) {
                 sample.width = columns;
                 sample.height = rows;
             }
-            if (scene >= 6) {
+            if (scene >= 9) {
+                drawKineticFallback(sampler, scene - 9, time, columns, rows);
+            } else if (scene >= 6) {
                 drawY2kFallback(sampler, scene - 6, time, columns, rows);
             } else if (abstract) {
                 drawNeonFallback(sampler, scene - 3, time, columns, rows);
@@ -301,7 +303,7 @@ function makeMotion(canvas, preferGpu = true) {
                 sampler.drawImage(image, (1-viewX*.965)/2*w+driftX*w, (1-viewY*.965)/2*h+driftY*h,
                     w*viewX*.965, h*viewY*.965, 0, 0, columns, rows);
             }
-            ctx.fillStyle = abstract ? '#050414' : '#0a1018';
+            ctx.fillStyle = scene === 11 ? '#000' : abstract ? '#050414' : '#0a1018';
             ctx.fillRect(0, 0, width, height);
             ctx.font = (height/rows)*.94 + 'px monospace';
             ctx.textBaseline = 'middle';

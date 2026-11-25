@@ -43,6 +43,21 @@ const scenes = [
         name: 'Hyperlink Highway', icon: '»',
         desc: 'An arcade racer at sunset',
         kicker: 'Y2K', subtitle: 'Chase the horizon past a rush of neon gates.'
+    },
+    {
+        name: 'Kaleido Drive', icon: '⬡',
+        desc: 'A twisting tunnel of colored facets',
+        kicker: 'KINETIC', subtitle: 'Light overtakes you as the tunnel twists.'
+    },
+    {
+        name: 'Bloom Breaker', icon: '✺',
+        desc: 'A flower made from thousands of particles',
+        kicker: 'KINETIC', subtitle: 'The bloom bursts into dust, braids, and rebuilds.'
+    },
+    {
+        name: 'Ink Fold', icon: '◐',
+        desc: 'A folding black-and-white ribbon',
+        kicker: 'KINETIC', subtitle: 'A twisting strip of paper carries waves of ink.'
     }
 ];
 
@@ -77,7 +92,7 @@ const images = scenes.map(({image, name}) => {
     return plate;
 });
 const formatNumber = n => String(n).padStart(2,'0');
-const collections = ['Christmas', 'Neon abstract', 'Y2K'];
+const collections = ['Christmas', 'Neon abstract', 'Y2K', 'Kinetic'];
 const sceneLists = collections.map(label => {
     const group = document.createElement('div');
     group.className = 'scene-group';
@@ -113,7 +128,9 @@ function selectScene(index) {
     });
     const abstract = !scene.image;
     document.body.classList.toggle('neon',abstract);
-    document.body.classList.toggle('y2k', index >= 6);
+    document.body.classList.toggle('y2k', index >= 6 && index < 9);
+    document.body.classList.toggle('kinetic', index >= 9);
+    document.body.classList.toggle('monochrome', index === 11);
     $('#collection').textContent = collections[Math.floor(index/3)].toUpperCase();
     $('#preview-count').textContent = 'SCENE ' + formatNumber(index + 1) + ' / ' + formatNumber(scenes.length);
     $('#art-num').textContent = 'NO. ' + formatNumber(index + 1);
