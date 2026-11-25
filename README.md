@@ -23,9 +23,9 @@
 | :--- | :--- |
 | **Chrome Bloom** | A liquid chrome star tumbles through an orbit of pearls and pink glints. |
 | **Dial-Up Dream** | A translucent aqua terminal floats through rising bubbles while its waveform and LEDs react. |
-| **Chrome Cross** | A silver pendant turns through lilac reflections and sharp glints. |
+| **Chrome Cross** | A silver pendant spins, breaks into orbiting pieces, and snaps back together. |
 | **Heart Circuit** | Glowing pink hearts stretch and pulse through a liquid pattern. |
-| **Silver Stars** | Chrome stars split into RGB glitches, then snap back into formation. |
+| **Silver Stars** | Chrome stars glide through rolling RGB glitches and settle back into formation. |
 
 </details>
 

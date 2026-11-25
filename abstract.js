@@ -248,6 +248,7 @@ uniform vec2 grid;
 uniform float glyphCount;
 uniform float time;
 uniform bool monochrome;
+uniform bool softType;
 varying vec2 uv;
 
 void main() {
@@ -259,8 +260,13 @@ void main() {
     float strength = pow(peak,.78);
     float seed = fract(sin(dot(id,vec2(12.9898,78.233)))*43758.5453);
     float shimmer = .46*sin(time*5.+seed*90.)*smoothstep(.29,.75,peak);
-    float character = clamp(floor(strength*glyphCount+seed*.76+shimmer),0.,glyphCount-1.);
+    float tone = strength*glyphCount+seed*.76+(softType ? 0. : shimmer);
+    float character = clamp(floor(tone),0.,glyphCount-1.);
     float ink = texture2D(glyphs,vec2((character+tile.x)/glyphCount,tile.y)).a;
+    if (softType && character < glyphCount-1.) {
+        float next = texture2D(glyphs,vec2((character+1.+tile.x)/glyphCount,tile.y)).a;
+        ink = mix(ink,next,smoothstep(.42,.98,fract(tone)));
+    }
     vec3 aura = light * (.19+.17*strength) + vec3(.004,.005,.014);
     vec3 textColor = clamp(light * (1.2 + 1.2*(1.-peak)),0.,1.);
     textColor = mix(textColor,vec3(.92,.97,1.),smoothstep(.85,1.,peak)*.42);
@@ -284,7 +290,7 @@ function makeProceduralRenderer(gl, mesh) {
     });
     const type = makeProgram(gl, backdropVertex, neonType);
     const typePosition = gl.getAttribLocation(type, 'position');
-    const typeUniforms = Object.fromEntries(['field','glyphs','grid','glyphCount','time','monochrome'].map(
+    const typeUniforms = Object.fromEntries(['field','glyphs','grid','glyphCount','time','monochrome','softType'].map(
         name => [name, gl.getUniformLocation(type, name)]));
     const paintBloom = makeBloomPainter(gl);
     const framebuffer = gl.createFramebuffer();
@@ -336,6 +342,7 @@ function makeProceduralRenderer(gl, mesh) {
         gl.uniform1f(typeUniforms.glyphCount,glyphRamp.length);
         gl.uniform1f(typeUniforms.time,time);
         gl.uniform1i(typeUniforms.monochrome,design === 8 ? 1 : 0);
+        gl.uniform1i(typeUniforms.softType,design >= 9 ? 1 : 0);
         draw(typePosition);
     };
 }

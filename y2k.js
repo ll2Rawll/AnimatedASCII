@@ -250,15 +250,12 @@ float starShape5(vec2 p) {
     float along = clamp(dot(p,edge)/dot(edge,edge),0.,1.);
     return length(p-edge*along)*sign(p.y*edge.x-p.x*edge.y);
 }
-float silverShape(vec2 p, bool pendant) {
-    return pendant ? pendantShape(p) : starShape5(p);
-}
-vec3 beveledSilver(vec2 p, float t, bool pendant) {
-    float d = silverShape(p,pendant);
+vec3 beveledSilver(vec2 p, float t) {
+    float d = starShape5(p);
     if (d > .018) return vec3(0.);
     vec2 eps = vec2(.0025,0.);
-    vec2 flatNormal = vec2(silverShape(p+eps.xy,pendant)-silverShape(p-eps.xy,pendant),
-                           silverShape(p+eps.yx,pendant)-silverShape(p-eps.yx,pendant));
+    vec2 flatNormal = vec2(starShape5(p+eps.xy)-starShape5(p-eps.xy),
+                           starShape5(p+eps.yx)-starShape5(p-eps.yx));
     float bevel = 1.-smoothstep(-.053,-.009,d);
     vec3 normal = normalize(vec3(flatNormal*96.*(1.-bevel),.21+.86*bevel));
     vec3 reflected = reflect(vec3(0.,0.,-1.),normal);
@@ -269,29 +266,135 @@ vec3 beveledSilver(vec2 p, float t, bool pendant) {
     float channel = filament(d+.046,.011);
     float innerLine = filament(d+.073,.009);
     float mask = 1.-smoothstep(-.008,.014,d);
-    vec3 tint = pendant ? vec3(.78,.84,.98) : vec3(.94,.96,1.);
+    vec3 tint = vec3(.94,.96,1.);
     vec3 metal = tint*(studio*.85+polish) * (1.-.94*channel);
     metal += vec3(.89,.95,1.)*(.81*rim+.75*innerLine);
     return metal*mask;
 }
 
+float crossProfile(vec2 p, float opening, float phase) {
+    if (opening < .001) return pendantShape(p);
+
+    float shape = length(p*vec2(1.,.98))-.139;
+    for (int limb=0;limb<4;limb++) {
+        float n = float(limb);
+        vec2 local = rotate(n*TAU*.25)*p;
+        local.y -= opening*(.245+.042*sin(n*1.8+phase*TAU));
+        local = rotate(opening*.51*cos(n*1.7+phase*TAU))*(local-vec2(0.,.31))+vec2(0.,.31);
+        float extent = limb == 2 ? .78 : (limb == 0 ? .64 : .56);
+        shape = min(shape,max(crossLimb(local,extent),.091-local.y));
+    }
+    return mix(pendantShape(p),shape,smoothstep(0.,.12,opening));
+}
+
+float crossVolume(vec3 p, float opening, float phase) {
+    // Bevel the edges of the extruded profile.
+    vec2 slab = vec2(crossProfile(p.xy,opening,phase),abs(p.z)-.097)+.027;
+    return (length(max(slab,0.))+min(max(slab.x,slab.y),0.)-.027)*.72;
+}
+
+vec3 crossChrome(vec3 hit, vec3 normal, vec3 ray, float opening, float phase, float charge) {
+    vec3 reflected = reflect(ray,normal);
+    float sweep = reflected.y + .33*reflected.x + .53*hit.y + .36*sin(phase*TAU*2.);
+    float bright = smoothstep(-.37,-.15,sweep)-smoothstep(.13,.38,sweep);
+    float lower = smoothstep(-.69,-.47,sweep)-smoothstep(-.42,-.32,sweep);
+    float rim = pow(1.-abs(dot(normal,ray)),2.6);
+    vec3 steel = vec3(.075,.081,.126)+vec3(.94,.97,1.)*(bright*.84+lower*.48);
+    steel += filament(sweep-.15,.051)*vec3(.85,.62,1.)*.88;
+    steel += filament(sweep+.34,.035)*vec3(.39,.83,1.)*.64;
+    steel += rim*vec3(.74,.83,1.)*.64;
+
+    // Two inset tracks follow the face and light up when the cross locks together.
+    float face = smoothstep(.51,.88,abs(normal.z));
+    float inset = crossProfile(hit.xy,opening,phase);
+    float trench = filament(inset+.047,.012);
+    float lip = filament(inset+.068,.014);
+    steel *= 1.-trench*face*.90;
+    steel += face*lip*vec3(.74,.76,.93)*(.41+.61*charge);
+
+    vec2 gem = rotate(phase*TAU*2.)*hit.xy;
+    float diamond = abs(gem.x)+abs(gem.y);
+    float facet = floor(atan(gem.y,gem.x)*1.27+.5);
+    vec3 jewel = mix(vec3(.25,.30,1.),vec3(1.,.42,.87),.5+.5*sin(facet*2.+phase*TAU*3.));
+    float stone = (1.-smoothstep(.082,.106,diamond))*face;
+    steel = mix(steel,jewel*(.42+.49*bright+.93*charge)+.31*lower,stone*.90);
+    steel += filament(diamond-.104,.009)*vec3(.85,.89,1.)*face*.89;
+    return steel;
+}
+
 vec3 chromeCross(vec2 p, float t) {
-    vec2 center = vec2(.07*sin(t*.62),-.021+.026*cos(t*.8));
-    vec2 q = p-center;
-    float pitch = .25*sin(t*.72), yaw = .64*sin(t*.78), roll = .18*sin(t*.58);
-    vec2 charm = jewelryView(q,pitch,yaw,roll);
-    vec3 color = vec3(.002,.002,.008)+vec3(.018,.012,.042)*exp(-length(q)*3.5);
-    float d = pendantShape(charm);
-    color += vec3(.31,.19,.91)*filament(d,.040)*.085;
-    color += beveledSilver(charm,t,true);
-    // An inset cross catches a dim lilac reflection within the wider silver bevel.
-    float inset = pendantShape(charm*1.53);
-    color += filament(inset,.015)*vec3(.42,.27,.82)*.25;
-    float stud = length(charm);
-    color += filament(stud-.054,.013)*vec3(.83,.88,1.)*.74;
-    float flare = pow(.5+.5*sin(t*1.68),16.);
-    color += crossFlare(charm-vec2(.017,.60),.12)*vec3(.67,.78,1.)*flare*.86;
-    color += crossFlare(charm-vec2(.537,.014),.095)*vec3(.97,.74,1.)*(1.-flare)*.29;
+    float phase = fract(t/9.2);
+    float cycle = phase*TAU;
+    float opening = smoothstep(.25,.40,phase)*(1.-smoothstep(.51,.68,phase));
+    float lock = exp(-square((phase-.676)*21.));
+    float charge = .15+.85*max(opening*.39,lock);
+    float shockTime = max(0.,phase-.654);
+    float shock = smoothstep(.655,.685,phase)*(1.-smoothstep(.745,.90,phase));
+    vec2 q = p-vec2(.044*sin(cycle),.034*sin(cycle*2.));
+    q *= 1.+.24*opening-.055*sin(cycle);
+    float r = length(q);
+    vec3 color = vec3(.002,.002,.008) + vec3(.071,.033,.15)*exp(-r*r*4.)*(.36+.50*opening+.67*lock);
+    color += vec3(.64,.21,1.)*filament(r-(.29+shockTime*3.7),.024)*shock*.64;
+    color += vec3(.25,.71,1.)*filament(r-(.22+shockTime*3.0),.015)*shock*.40;
+    color += vec3(.25,.31,.72)*stars(q*.95,cycle*2./1.9)*(.16+.60*opening);
+
+    // Two angled orbits carry polished fragments around the pendant.
+    vec3 orbitGlow = vec3(0.);
+    float nearPass = 0.;
+    for (int i=0;i<2;i++) {
+        float n = float(i);
+        vec2 e = rotate((n-.5)*1.21+.36*sin(cycle+n))*q;
+        e.y /= .30+.10*sin(cycle+n);
+        float ring = length(e);
+        float a = atan(e.y,e.x);
+        float tr = .94+.19*n+.18*opening;
+        float head = pow(.5+.5*cos(a*2.-cycle*(2.+n)),14.);
+        float chain = pow(.5+.5*cos(a*37.-cycle*(6.+n)),11.);
+        float line = filament(ring-tr,.011);
+        vec3 neon = mix(vec3(.77,.25,1.),vec3(.34,.77,1.),n);
+        orbitGlow += line*neon*(.12+.81*head+.34*chain)*(.59+.70*opening+.37*shock);
+        nearPass += head*line*(1.-smoothstep(-.08,.06,e.y));
+    }
+    for (int i=0;i<10;i++) {
+        float id = float(i);
+        float a = id*TAU*.1+cycle*(id<5. ? 1. : -2.);
+        float radius = .97+.12*sin(id*1.79+cycle)+opening*.20;
+        vec2 bead = rotate(id<5. ? -.58 : .52)*vec2(radius*cos(a),.42*radius*sin(a));
+        vec2 v = q-bead;
+        float size = .017+.012*sin(id*3.7+cycle*2.);
+        float d = abs(v.x)+abs(v.y);
+        float flicker = pow(.5+.5*cos(id*3.1+cycle*4.),8.);
+        vec3 gem = mix(vec3(.73,.36,1.),vec3(.58,.86,1.),.5+.5*sin(id*3.));
+        orbitGlow += gem*(1.-smoothstep(size*.64,size,d))*(.37+.61*flicker);
+        orbitGlow += crossFlare(v,.055)*gem*flicker*.29;
+    }
+    color += orbitGlow;
+    if (r > 1.14) return color;
+
+    float yaw = TAU*(smoothstep(.10,.47,phase)+smoothstep(.53,.85,phase))+.25*sin(cycle);
+    float pitch = .30*sin(cycle)+ .34*opening*cos(cycle);
+    float roll = .17*sin(cycle*2.)+.30*opening;
+    vec3 origin = turn3(vec3(q*.85,1.59),pitch,yaw,roll);
+    vec3 ray = turn3(normalize(vec3(q*.15,-1.)),pitch,yaw,roll);
+    float distance = 0.;
+    float closest = 2.;
+    for (int i=0;i<66;i++) {
+        vec3 hit = origin+ray*distance;
+        float d = crossVolume(hit,opening,phase);
+        closest = min(closest,d);
+        if (d < .0017) {
+            vec2 e = vec2(.0026,0.);
+            vec3 n = normalize(vec3(crossVolume(hit+e.xyy,opening,phase)-crossVolume(hit-e.xyy,opening,phase),
+                                    crossVolume(hit+e.yxy,opening,phase)-crossVolume(hit-e.yxy,opening,phase),
+                                    crossVolume(hit+e.yyx,opening,phase)-crossVolume(hit-e.yyx,opening,phase)));
+            vec3 steel = crossChrome(hit,n,ray,opening,phase,charge);
+            return steel + nearPass*vec3(.69,.58,1.)*.73 + orbitGlow*.09;
+        }
+        distance += d;
+        if (distance > 3.) break;
+    }
+    color += filament(closest,.021)*vec3(.49,.25,.87)*(.19+.38*lock);
+    color += crossFlare(q,.32)*vec3(.49,.64,1.)*lock*.18;
     return color;
 }
 
@@ -304,27 +407,31 @@ float heartDistance(vec2 p) {
 }
 vec3 candyHeart(vec2 p, float t) {
     vec2 field = rotate(.13*sin(t*.51)-.20)*p*1.56;
-    field += vec2(.29*sin(field.y*2.41-t*1.42),.23*sin(field.x*1.46+t*1.24));
+    field += vec2(.23*sin(field.y*2.41-t*.95),.20*sin(field.x*1.46+t*.87));
     field += vec2(-t*.103,.14*cos(t*.51));
     vec2 cell = floor(field+.5);
-    float dist = 2., seed = 0.;
+    float dist = 2., tint = 0., samples = 0.;
     for (int y=-1;y<=1;y++) for (int x=-1;x<=1;x++) {
         vec2 tag = cell+vec2(float(x),float(y));
         float key = hash(tag+vec2(.1,.3));
         vec2 shift = .20*vec2(sin(tag.y*8.3+1.),cos(tag.x*6.9+.5));
         vec2 q = field-tag-shift;
-        q = rotate(1.15*(key-.5)+.28*sin(t*1.05+key*14.))*q;
-        float beat = pow(.5+.5*cos(t*2.8-tag.x*.92-tag.y*.68),4.);
-        float size = .53+.17*key+.13*beat;
+        q = rotate(1.15*(key-.5)+.23*sin(t*.77+key*14.))*q;
+        float beat = pow(.5+.5*cos(t*1.88-tag.x*.92-tag.y*.68),2.1);
+        float size = .56+.17*key+.102*beat;
         float shape = heartDistance(q/size+vec2(0.,.47))*size-.025;
-        if (shape < dist) { dist = shape; seed = key; }
+        float blend = max(.066 - abs(dist-shape),0.)/.066;
+        dist = min(dist,shape)-blend*blend*.0165;
+        float weight = exp(-max(0.,shape+.069)*8.3);
+        tint += key*weight;
+        samples += weight;
     }
-    float wave = pow(.5+.5*cos(t*2.28-length(p)*4.7),3.);
-    vec3 rose = mix(vec3(.98,.42,.62),vec3(1.,.65,.70),seed);
-    float center = 1.-smoothstep(-.043,.028,dist);
+    float wave = pow(.5+.5*cos(t*1.84-length(p)*4.7),2.2);
+    vec3 rose = mix(vec3(.98,.42,.62),vec3(1.,.65,.70),tint/max(samples,.001));
+    float center = 1.-smoothstep(-.054,.039,dist);
     float plush = .49+.51*(1.-smoothstep(-.19,.001,dist));
     float halo = filament(dist,.051)*.30;
-    float ribbon = smoothstep(.074,.119,dist)*(1.-smoothstep(.227,.263,dist));
+    float ribbon = smoothstep(.070,.125,dist)*(1.-smoothstep(.220,.271,dist));
     float filigree = filament(dist-.31,.020);
     vec3 color = vec3(.016,.005,.013);
     color += center*mix(rose,vec3(1.,.71,.75),.47)*(1.13+.75*plush+.19*wave);
@@ -337,7 +444,7 @@ vec3 orbitStar(vec3 base, vec2 q, float size, vec3 pose, float t) {
     vec2 star = jewelryView(q/size,pose.x,pose.y,pose.z);
     float outline = starShape5(star);
     float shade = 1.-smoothstep(-.013,.025,outline);
-    vec3 metal = beveledSilver(star,t,false);
+    vec3 metal = beveledSilver(star,t);
     base = mix(base,metal,shade);
     base += filament(outline-.055,.020)*vec3(.63,.69,.82)*.13;
     float pulse = pow(.5+.5*cos(t*1.97),15.);
@@ -346,7 +453,7 @@ vec3 orbitStar(vec3 base, vec2 q, float size, vec3 pose, float t) {
 }
 vec3 silverFormation(vec2 p, float t) {
     vec2 q = rotate(.12*sin(t*.7)-.25)*p;
-    float part = smoothstep(.19,.80,.5+.5*sin(t*.81));
+    float part = .5+.5*sin(t*.66);
     vec2 c1 = vec2(-.078-.16*part,.181+.11*part);
     vec2 c2 = vec2(.30+.24*part,-.14-.07*part);
     vec2 c3 = vec2(-.235-.14*part,-.32-.21*part);
@@ -359,28 +466,24 @@ vec3 silverFormation(vec2 p, float t) {
 }
 vec3 starStack(vec2 p, float t) {
     float phase = mod(t+.52,3.58);
-    float glitch = smoothstep(.10,.18,phase)*(1.-smoothstep(.47,.72,phase));
+    float glitch = smoothstep(.065,.25,phase)*(1.-smoothstep(.47,.86,phase));
     if (glitch < .001) return silverFormation(p,t);
 
-    // Frozen video frames, horizontal tracking errors, and brief chromatic separation.
-    float frame = floor(t*17.);
-    float row = floor((p.y+.12*sin(t*12.))*42.);
-    float seed = hash(vec2(row,frame));
-    float displaced = step(.47,seed)*(seed-.44);
-    p.x += glitch*(displaced-.12)*.22;
-    float line = floor((p.y-.11*cos(t*13.))*12.);
-    p.x += glitch*(hash(vec2(line,frame))-.5)*.14;
-    float split = glitch*(.033+.073*displaced);
-    float held = mix(t,floor(t*11.)/11.,glitch);
-    vec3 center = silverFormation(p,held);
-    vec3 left = silverFormation(p-vec2(split,0),held);
-    vec3 right = silverFormation(p+vec2(split,0),held);
-    vec3 torn = vec3(left.r,center.g*.75+right.g*.25,right.b);
-    float tracking = 1.-glitch*.33*step(.52,fract(p.y*114.+frame*.19));
-    vec3 color = mix(center,torn,glitch)*tracking;
-    float pix = step(.91,hash(vec2(floor(p.x*117.),row+frame)));
-    color += vec3(.22,.072,.27)*pix*glitch*step(.68,seed)*exp(-length(p)*2.2);
-    return color;
+    // Smooth tracking errors: rolling bands with continuous displacement and color separation.
+    float band = .40 - phase*1.64;
+    float tear = filament(p.y-band,.073);
+    float echo = filament(p.y-band-.23,.033);
+    float wave = sin(p.y*69.-t*20.);
+    float warp = (.12*tear-.07*echo)*sin(t*9.) + wave*(.011+.019*tear);
+    p.x += warp*glitch;
+    float split = glitch*(.020+.047*tear+.015*echo);
+    float delayed = t-glitch*.060*(.48+.52*sin(t*12.-p.y*3.));
+    vec3 center = silverFormation(p,delayed);
+    vec3 left = silverFormation(p-vec2(split,0),delayed);
+    vec3 right = silverFormation(p+vec2(split,0),delayed);
+    vec3 torn = vec3(left.r,center.g*.70+right.g*.30,right.b);
+    float tracking = 1.-glitch*(.05+.17*tear)*(.5+.5*cos(p.y*114.-t*15.));
+    return mix(center,torn,glitch)*tracking;
 }
 `;
 
@@ -431,11 +534,18 @@ function drawY2kFallback(pen, design, t, width, height) {
             pen.fillRect(-.31+i*.05,.24,.025,.075);
         }
     } else {
-        pen.rotate(.23*Math.sin(t*.62));
+        const phase = (t/9.2)%1;
+        const opening = Math.sin(Math.PI*Math.min(1,Math.max(0,(phase-.24)/.45)))**2;
+        pen.rotate(Math.PI*2*phase+.14*Math.sin(t*1.4));
+        pen.strokeStyle = 'rgba(158,167,255,.60)';
+        pen.beginPath();
+        pen.ellipse(0,0,1.02+.15*opening,.32,.52,0,Math.PI*2);
+        pen.stroke();
         pen.fillStyle = light;
         for (const angle of [0, Math.PI/2, Math.PI, Math.PI*1.5]) {
             pen.save();
             pen.rotate(angle);
+            pen.translate(0,-.25*opening);
             const tip = angle === Math.PI ? -.76 : -.53;
             pen.beginPath();
             pen.moveTo(-.11,.13);
@@ -462,7 +572,7 @@ function drawY2kExtraFallback(pen, design, t, width, height) {
     if (design === 0) {
         const limit = Math.ceil(width/height);
         for (let row=-2;row<=2;row++) for (let col=-limit;col<=limit;col++) {
-            const pulse=.5+.5*Math.sin(t*2.6-col*.65-row*.66);
+            const pulse=.5+.5*Math.sin(t*1.88-col*.65-row*.66);
             pen.save();
             pen.translate(col*.53+(row%2)*.20+.09*Math.sin(t+row),row*.53+.09*Math.sin(t+col));
             pen.rotate(.31*Math.sin(t*.81+row+col));
@@ -473,7 +583,7 @@ function drawY2kExtraFallback(pen, design, t, width, height) {
             pen.bezierCurveTo(-.61,-1.06,-.19,-.90,0,-.55);
             pen.bezierCurveTo(.19,-.90,.61,-1.06,.89,-.58);
             pen.bezierCurveTo(1.19,-.07,.23,.58,0,.79);
-            pen.fillStyle = pulse>.53 ? '#ffc4cc' : '#ed83a5';
+            pen.fillStyle = `rgb(${237+18*pulse},${131+65*pulse},${165+39*pulse})`;
             pen.strokeStyle = '#793e58';
             pen.lineWidth = .16;
             pen.stroke();
@@ -508,11 +618,12 @@ function drawY2kExtraFallback(pen, design, t, width, height) {
         }
     }
     pen.restore();
-    if (design === 1 && (t+.52)%3.58 > .15 && (t+.52)%3.58 < .67) {
-        const frame = Math.floor(t*17);
-        for (let i=0;i<7;i++) {
+    if (design === 1) {
+        const phase = (t+.52)%3.58;
+        const strength = Math.max(0,Math.min(1,(phase-.065)/.185,(.86-phase)/.39));
+        for (let i=0;i<7 && strength>.01;i++) {
             const y = Math.floor((.24+i*.084)*height);
-            const shift = Math.round(Math.sin(frame*1.76+i*41.)*width*.035);
+            const shift = Math.sin(t*11+i*41.)*width*.035*strength;
             pen.drawImage(pen.canvas,0,y,width,2,shift,y,width,2);
         }
     }

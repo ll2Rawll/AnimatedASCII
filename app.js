@@ -42,7 +42,7 @@ const scenes = [
     {
         name: 'Chrome Cross', icon: '✦',
         desc: 'A polished cross with lilac reflections',
-        kicker: 'Y2K', subtitle: 'Silver bevels catch the light as the pendant turns.'
+        kicker: 'Y2K', subtitle: 'A spinning pendant breaks into orbiting pieces and locks back together.'
     },
     {
         name: 'Kaleido Drive', icon: '⬡',
@@ -67,7 +67,7 @@ const scenes = [
     {
         name: 'Silver Stars', icon: '☆',
         desc: 'A cluster of beveled chrome stars',
-        kicker: 'Y2K', subtitle: 'Chrome stars scatter into RGB glitches and snap back into formation.'
+        kicker: 'Y2K', subtitle: 'Rolling RGB distortion sweeps across the stars as they glide.'
     }
 ];
 
