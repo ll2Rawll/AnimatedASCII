@@ -4,20 +4,9 @@
 
 **Fourteen seamless live wallpapers for Windows, drawn in ASCII.**
 
-<img src="docs/kinetic-ascii.webp" alt="Animated preview of Kaleido Drive, Bloom Breaker, and Ink Fold" width="672">
+<img src="docs/y2k-ascii.webp" alt="Animated preview of the five Y2K wallpapers" width="672">
 
 </div>
-
-| Kinetic | What moves |
-| :--- | :--- |
-| **Kaleido Drive** | Mirrored facets twist and send waves of color down a tunnel. |
-| **Bloom Breaker** | Thousands of particles form a flower, scatter, braid together, and rebuild. |
-| **Ink Fold** | A black-and-white ribbon folds over itself as ink patterns travel across it. |
-
-<details>
-<summary>Y2K collection</summary>
-
-<img src="docs/y2k-ascii.webp" alt="Animated preview of the five Y2K wallpapers" width="672">
 
 | Y2K | What moves |
 | :--- | :--- |
@@ -26,6 +15,17 @@
 | **Chrome Cross** | A silver pendant spins, breaks into orbiting pieces, and snaps back together. |
 | **Heart Circuit** | Glowing pink hearts stretch and pulse through a liquid pattern. |
 | **Silver Stars** | Chrome stars glide through rolling RGB glitches and settle back into formation. |
+
+<details>
+<summary>Kinetic collection</summary>
+
+<img src="docs/kinetic-ascii.webp" alt="Animated preview of Kaleido Drive, Bloom Breaker, and Ink Fold" width="672">
+
+| Kinetic | What moves |
+| :--- | :--- |
+| **Kaleido Drive** | Mirrored facets twist and send waves of color down a tunnel. |
+| **Bloom Breaker** | Thousands of particles form a flower, scatter, braid together, and rebuild. |
+| **Ink Fold** | A black-and-white ribbon folds over itself as ink patterns travel across it. |
 
 </details>
 
